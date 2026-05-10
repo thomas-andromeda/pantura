@@ -42,9 +42,17 @@ const VerticalMenu = ({ scrollMenu }) => {
           label='Dashboards'
           icon={<i className='ri-home-smile-line' />}
         >
-          <MenuItem href='/'>
-            Analytics</MenuItem>
-          <MenuItem href='/ai-analysis'>
+          <MenuItem 
+            href='/' 
+            icon={<i className='ri-bar-chart-2-line' />}
+          >
+            Analytics
+          </MenuItem>
+
+          <MenuItem 
+            href='/ai-analysis' 
+            icon={<i className='ri-magic-line' />} // Atau 'ri-brain-line'
+          >
             AI Data Analysis
           </MenuItem>
         </SubMenu>
