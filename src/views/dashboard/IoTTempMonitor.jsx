@@ -18,7 +18,7 @@ import {
 } from 'recharts'
 
 // ─── UBAH DI SINI untuk jumlah data chart ────────────────────────────────────
-const DATA_LIMIT = 3000
+const DATA_LIMIT = 50
 
 // ─── OPEN-METEO ───────────────────────────────────────────────────────────────
 const fetchOutdoorTemp = async (lat, lon) => {

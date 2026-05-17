@@ -19,7 +19,7 @@ const BATAS_SUHU_MIN   = 25.0
 const BATAS_SUHU_MAX   = 30.0
 const BATAS_LEMBAB_MIN = 50.0
 const BATAS_LEMBAB_MAX = 70.0
-const LIMIT_DATA       = 3000
+const LIMIT_DATA       = 2598
 
 // ─── KATEGORI ────────────────────────────────────────────────────────────────
 const KATEGORI_MAP = {
@@ -622,12 +622,12 @@ const AIAnalysisPage = () => {
                       fontWeight: 800 
                     }} 
                   />
-                {/* <Bar yAxisId='s' dataKey='avgSuhu'   name='Avg Suhu (°C)'     radius={[4,4,0,0]}>
+                <Bar yAxisId='s' dataKey='avgSuhu'   name='Avg Suhu (°C)'     radius={[4,4,0,0]}>
                   {result.avgPerKategori.map((entry, i) => <Cell key={i} fill={entry.fill} opacity={0.85} />)}
                 </Bar>
                 <Bar yAxisId='l' dataKey='avgLembab' name='Avg Kelembapan (%)' radius={[4,4,0,0]}>
                   {result.avgPerKategori.map((entry, i) => <Cell key={i} fill={entry.fill} opacity={0.45} />)}
-                </Bar> */}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
