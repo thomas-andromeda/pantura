@@ -21,6 +21,7 @@
     "@mui/lab": "5.0.0-alpha.170",
     "@mui/material": "^5.15.19",
     "@mui/material-nextjs": "^5.15.11",
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.104.1",
     "apexcharts": "^3.49.1",
     "classnames": "^2.5.1",

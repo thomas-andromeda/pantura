@@ -1,20 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Card from '@mui/material/Card'
-import Button from '@mui/material/Button'
+import Box from '@mui/material/Box'
 import { useTheme } from '@mui/material/styles'
 import CardHeader from '@mui/material/CardHeader'
 import Typography from '@mui/material/Typography'
 import CardContent from '@mui/material/CardContent'
 import OptionsMenu from '@core/components/option-menu'
 import { supabase } from '@/libs/supabaseClient'
+import { useDevice } from '@/contexts/DeviceContext'
 
 const AppReactApexCharts = dynamic(() => import('@/libs/styles/AppReactApexCharts'))
 
 const TemperatureOverview = () => {
   const theme = useTheme()
+  const { activeDevice } = useDevice()
   const [series, setSeries] = useState([
     { name: 'Suhu', data: [] },
     { name: 'Kelembapan', data: [] }
@@ -26,11 +28,21 @@ const TemperatureOverview = () => {
   const primary = 'var(--mui-palette-primary-main)'
   const info = 'var(--mui-palette-info-main)'
 
-  const fetchChartData = async () => {
+  const fetchChartData = useCallback(async () => {
+    if (!activeDevice?.device_token) {
+      setSeries([
+        { name: 'Suhu', data: [] },
+        { name: 'Kelembapan', data: [] }
+      ])
+      setCategories([])
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('sensor_data')
         .select('suhu, kelembapan, created_at')
+        .eq('device_token', activeDevice.device_token)
         .order('created_at', { ascending: false })
         .limit(10)
 
@@ -50,17 +62,31 @@ const TemperatureOverview = () => {
     } catch (err) {
       console.error(err.message)
     }
-  }
+  }, [activeDevice?.device_token])
 
   useEffect(() => {
     fetchChartData()
+
+    if (!activeDevice?.device_token) return
+
     const channel = supabase
-      .channel('temp_realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sensor_data' }, () => fetchChartData())
+      .channel(`temp_realtime_${activeDevice.device_token}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'sensor_data',
+          filter: `device_token=eq.${activeDevice.device_token}`
+        },
+        () => fetchChartData()
+      )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
-  }, [])
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [activeDevice?.device_token, fetchChartData])
 
   const options = {
     chart: {
@@ -155,10 +181,21 @@ const TemperatureOverview = () => {
     }
   }
 
+  if (!activeDevice) {
+    return (
+      <Card>
+        <CardHeader title='Ikhtisar Suhu & Kelembapan' />
+        <CardContent className='flex items-center justify-center min-bs-[200px]'>
+          <Typography color='textSecondary'>Pilih perangkat terlebih dahulu</Typography>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader
-        title='TemperatureOverview'
+        title={`Ikhtisar - ${activeDevice.device_name}`}
         action={
           <OptionsMenu 
             iconClassName='text-textPrimary' 

@@ -1,71 +1,78 @@
+'use client'
+
 // MUI Imports
 import Grid from '@mui/material/Grid'
+import Box from '@mui/material/Box'
+import Card from '@mui/material/Card'
+import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
+
+// Next Imports
+import Link from 'next/link'
+
+// Context Imports
+import { useDevice } from '@/contexts/DeviceContext'
 
 // Components Imports
-import Award from '@views/dashboard/Award'
 import IoTTempMonitor from '@views/dashboard/IoTTempMonitor'
 import TemperatureOverview from '@/views/dashboard/TemperatureOverview'
-import TotalEarning from '@views/dashboard/TotalEarning'
-import LineChart from '@views/dashboard/LineChart'
-import DistributedColumnChart from '@views/dashboard/DistributedColumnChart'
-import DepositWithdraw from '@views/dashboard/DepositWithdraw'
-import SalesByCountries from '@views/dashboard/SalesByCountries'
-import CardStatVertical from '@components/card-statistics/Vertical'
-import Table from '@views/dashboard/Table'
 
 const DashboardAnalytics = () => {
+  const { devices, activeDevice, loading } = useDevice()
+
+  if (loading) {
+    return (
+      <Box className='flex justify-center items-center min-bs-[400px]'>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (devices.length === 0) {
+    return (
+      <Box className='flex justify-center items-center min-bs-[400px] p-6'>
+        <Card className='flex flex-col items-center justify-center p-12 text-center shadow-md max-w-lg w-full'>
+          <Box className='flex items-center justify-center rounded-full p-4 mbe-4' style={{ backgroundColor: 'rgba(102, 108, 255, 0.08)' }}>
+            <i className='ri-router-line text-primary' style={{ fontSize: '3rem' }} />
+          </Box>
+          <Typography variant='h5' className='mbe-2 font-medium'>
+            Belum Ada Perangkat Terdaftar
+          </Typography>
+          <Typography variant='body2' color='textSecondary' className='mbe-6'>
+            Untuk mulai memantau suhu dan kelembapan, daftarkan perangkat ESP32 Anda terlebih dahulu.
+          </Typography>
+          <Button
+            component={Link}
+            href='/devices'
+            variant='contained'
+            color='primary'
+            startIcon={<i className='ri-add-line' />}
+          >
+            Daftar Perangkat Baru
+          </Button>
+        </Card>
+      </Box>
+    )
+  }
+
   return (
     <Grid container spacing={6}>
+      {!activeDevice && (
+        <Grid item xs={12}>
+          <Alert severity='warning'>
+            Silakan pilih perangkat aktif dari menu dropdown di navbar atas.
+          </Alert>
+        </Grid>
+      )}
+
       <Grid item xs={12}>
         <IoTTempMonitor />
       </Grid>
       <Grid item xs={12}>
         <TemperatureOverview />
       </Grid>
-      {/* <Grid item xs={12} md={6} lg={4}>
-        <TotalEarning />
-      </Grid>
-      <Grid item xs={12} md={6} lg={4}>
-        <Grid container spacing={6}>
-          <Grid item xs={12} sm={6}>
-            <LineChart />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <CardStatVertical
-              title='Total Profit'
-              stats='$25.6k'
-              avatarIcon='ri-pie-chart-2-line'
-              avatarColor='secondary'
-              subtitle='Weekly Profit'
-              trendNumber='42%'
-              trend='positive'
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <CardStatVertical
-              stats='862'
-              trend='negative'
-              trendNumber='18%'
-              title='New Project'
-              subtitle='Yearly Project'
-              avatarColor='primary'
-              avatarIcon='ri-file-word-2-line'
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <DistributedColumnChart />
-          </Grid>
-        </Grid>
-      </Grid>
-      <Grid item xs={12} md={6} lg={4}>
-        <SalesByCountries />
-      </Grid>
-      <Grid item xs={12} lg={8}>
-        <DepositWithdraw />
-      </Grid>
-      <Grid item xs={12}>
-        <Table />
-      </Grid> */}
     </Grid>
   )
 }

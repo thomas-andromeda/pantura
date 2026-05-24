@@ -9,16 +9,20 @@ import Grid from '@mui/material/Grid'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import ToggleButton from '@mui/material/ToggleButton'
 import OptionMenu from '@core/components/option-menu'
 import CustomAvatar from '@core/components/mui/Avatar'
+import { useTheme } from '@mui/material/styles'
 import { supabase } from '@/libs/supabaseClient'
+import { useDevice } from '@/contexts/DeviceContext'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts'
 
 // ─── UBAH DI SINI untuk jumlah data chart ────────────────────────────────────
-const DATA_LIMIT = 50
+const DATA_LIMIT = 100
 
 // ─── OPEN-METEO ───────────────────────────────────────────────────────────────
 const fetchOutdoorTemp = async (lat, lon) => {
@@ -67,8 +71,17 @@ const CustomTooltip = ({ active, payload, label }) => {
   )
 }
 
+const categoryModes = [
+  { id: 1, label: 'PC & AC Mati', colorKey: 'secondary', icon: 'ri-power-off-line' },
+  { id: 2, label: 'PC Nyala', colorKey: 'warning', icon: 'ri-computer-line' },
+  { id: 3, label: 'PC & AC Nyala', colorKey: 'success', icon: 'ri-cpu-line' },
+  { id: 4, label: 'AC Nyala', colorKey: 'info', icon: 'ri-temp-cold-line' }
+]
+
 // ─── KOMPONEN UTAMA ───────────────────────────────────────────────────────────
 const IoTTempMonitor = () => {
+  const theme = useTheme()
+  const { activeDevice, updateCategoryMode } = useDevice()
   const [avgTemp,      setAvgTemp]      = useState(null)
   const [avgHum,       setAvgHum]       = useState(null)
   const [totalCount,   setTotalCount]   = useState(null)
@@ -79,6 +92,7 @@ const IoTTempMonitor = () => {
   const [gpsStatus,    setGpsStatus]    = useState('idle') // idle | loading | ok | error
   const [chartData,    setChartData]    = useState([])
   const [chartLoading, setChartLoading] = useState(true)
+  const isFirstChartLoad = useRef(true)
 
   // Simpan koordinat supaya tidak perlu minta GPS berulang
   const coordsRef  = useRef({ lat: null, lon: null })
@@ -88,39 +102,58 @@ const IoTTempMonitor = () => {
   // ── Cek status device ─────────────────────────────────────────────────────
   const checkStatus = (lastTime) => {
     if (!lastTime) return 'Offline'
-    return (new Date() - new Date(lastTime)) / 1000 > 10 ? 'Offline' : 'Online'
+    return (new Date() - new Date(lastTime)) / 1000 > 45 ? 'Offline' : 'Online'
   }
 
   // ── Fetch data sensor ─────────────────────────────────────────────────────
   const fetchSensor = useCallback(async () => {
+    if (!activeDevice?.device_token) {
+      setAvgTemp(null)
+      setAvgHum(null)
+      setTotalCount(null)
+      setDevStatus('Offline')
+      setChartData([])
+      setChartLoading(false)
+      return
+    }
+
     try {
       // Stat cards: 10 data terbaru
       const { data: recent, error: e1, count } = await supabase
         .from('sensor_data')
         .select('*', { count: 'exact' })
+        .eq('device_token', activeDevice.device_token)
         .order('created_at', { ascending: false })
         .limit(10)
       if (e1) throw e1
 
-      if (recent?.length > 0) {
+      if (recent && recent.length > 0) {
         const aT = recent.reduce((a, b) => a + b.suhu, 0)       / recent.length
         const aH = recent.reduce((a, b) => a + b.kelembapan, 0) / recent.length
         setAvgTemp(aT.toFixed(1))
         setAvgHum(aH.toFixed(1))
         setTotalCount(count ?? 0)
         setDevStatus(checkStatus(recent[0].created_at))
+      } else {
+        setAvgTemp(null)
+        setAvgHum(null)
+        setTotalCount(0)
+        setDevStatus('Offline')
       }
 
       // Chart: DATA_LIMIT data, descending lalu di-reverse
-      setChartLoading(true)
+      if (isFirstChartLoad.current) {
+        setChartLoading(true)
+      }
       const { data: raw, error: e2 } = await supabase
         .from('sensor_data')
         .select('suhu, kelembapan, created_at')
+        .eq('device_token', activeDevice.device_token)
         .order('created_at', { ascending: false })
         .limit(DATA_LIMIT)
       if (e2) throw e2
 
-      if (raw?.length > 0) {
+      if (raw && raw.length > 0) {
         const sorted = [...raw].reverse()
         const step   = Math.max(1, Math.floor(sorted.length / 300))
         const oTemp  = outdoorRef.current.suhu
@@ -135,13 +168,16 @@ const IoTTempMonitor = () => {
               ...(oTemp != null ? { suhuLuar: oTemp } : {}),
             }))
         )
+        isFirstChartLoad.current = false
+      } else {
+        setChartData([])
       }
     } catch (err) {
       console.error('fetchSensor:', err.message)
     } finally {
       setChartLoading(false)
     }
-  }, [])
+  }, [activeDevice?.device_token])
 
   // ── Fetch suhu luar ───────────────────────────────────────────────────────
   const fetchOutdoor = useCallback(async () => {
@@ -164,10 +200,15 @@ const IoTTempMonitor = () => {
             const city = j.address?.city || j.address?.town || j.address?.village || ''
             if (city) setLocationName(city)
           })
-          .catch(() => {})
-      } catch {
-        setGpsStatus('error')
-        return // tidak update apa-apa, biarkan tampilan tetap seperti sebelumnya
+          .catch(() => setLocationName('Semarang'))
+      } catch (err) {
+        console.warn('Geolocation failed, falling back to Semarang default coordinates:', err)
+        // Fallback ke Semarang (dekat kampus Polines Tembalang)
+        lat = -7.0483
+        lon = 110.4410
+        coordsRef.current = { lat, lon }
+        setGpsStatus('ok')
+        setLocationName('Semarang')
       }
     }
 
@@ -186,14 +227,26 @@ const IoTTempMonitor = () => {
     await fetchSensor()
   }, [fetchOutdoor, fetchSensor])
 
-  // ── Mount ─────────────────────────────────────────────────────────────────
+  // ── Mount & Active Device Changes ─────────────────────────────────────────
   useEffect(() => {
-    // GPS + cuaca duluan, baru chart (supaya garis suhu luar langsung muncul)
-    fetchOutdoor().then(fetchSensor)
+    // Jalankan fetch outdoor (cuaca) dan fetch sensor secara paralel/independen (non-blocking)
+    fetchOutdoor()
+    fetchSensor()
+
+    if (!activeDevice?.device_token) return
 
     const channel = supabase
-      .channel('realtime_iot_changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sensor_data' }, fetchSensor)
+      .channel(`realtime_iot_${activeDevice.device_token}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'sensor_data',
+          filter: `device_token=eq.${activeDevice.device_token}`
+        },
+        fetchSensor
+      )
       .subscribe()
 
     const sensorTimer  = setInterval(fetchSensor,  30_000)
@@ -204,8 +257,7 @@ const IoTTempMonitor = () => {
       clearInterval(sensorTimer)
       clearInterval(outdoorTimer)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activeDevice?.device_token, fetchOutdoor, fetchSensor])
 
   // ── Saat suhu luar update, perbarui garis di chart tanpa re-fetch ─────────
   useEffect(() => {
@@ -214,6 +266,29 @@ const IoTTempMonitor = () => {
       prev.map(d => ({ ...d, suhuLuar: outdoorTemp }))
     )
   }, [outdoorTemp])
+
+  const handleModeChange = async (e, newValue) => {
+    if (newValue === null || !activeDevice) return
+    try {
+      await updateCategoryMode(activeDevice.id, newValue)
+    } catch (err) {
+      console.error('Error changing category mode:', err)
+    }
+  }
+
+  if (!activeDevice) {
+    return (
+      <Card className='bs-full flex items-center justify-center p-12 text-center'>
+        <Box>
+          <i className='ri-router-line text-secondary' style={{ fontSize: '3rem' }} />
+          <Typography variant='h6' className='mts-2'>Pilih perangkat untuk melihat data</Typography>
+          <Typography variant='body2' color='textSecondary'>
+            Silakan pilih perangkat Anda di navbar atas atau tambahkan baru di menu "Perangkat Saya".
+          </Typography>
+        </Box>
+      </Card>
+    )
+  }
 
   // ─── Data card ────────────────────────────────────────────────────────────
   const cards = [
@@ -257,7 +332,7 @@ const IoTTempMonitor = () => {
   return (
     <Card className='bs-full'>
       <CardHeader
-        title='IoT Temperature + Humidity Monitor'
+        title={`IoT Monitor — ${activeDevice.device_name}`}
         action={
           <OptionMenu
             iconClassName='text-textPrimary'
@@ -271,10 +346,15 @@ const IoTTempMonitor = () => {
         subheader={
           <Box className='mbs-1' sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <span className='font-medium text-textPrimary'>Smart Monitoring System</span>
-            <span className='text-textSecondary'>— Kamar</span>
+            <span className='text-textSecondary'>— {activeDevice.device_token}</span>
             {gpsStatus === 'loading' && <CircularProgress size={10} />}
             {gpsStatus === 'ok' && locationName && (
-              <Chip label={`📍 ${locationName}`} size='small' sx={{ height: 18, fontSize: '0.65rem' }} />
+              <Chip
+                icon={<i className='ri-map-pin-line' style={{ fontSize: '0.75rem', marginLeft: '4px' }} />}
+                label={locationName}
+                size='small'
+                sx={{ height: 18, fontSize: '0.65rem' }}
+              />
             )}
             {gpsStatus === 'error' && (
               <Chip label='GPS tidak tersedia' size='small' color='error' sx={{ height: 18, fontSize: '0.65rem' }} />
@@ -305,8 +385,67 @@ const IoTTempMonitor = () => {
           ))}
         </Grid>
 
+        {/* ── MODE RUANGAN AKTIF CONTROL ────────────────────────────────── */}
+        <Box sx={{ mt: 6, p: 4, borderRadius: 1, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+          <Typography variant='subtitle1' fontWeight={600} sx={{ mb: 2 }}>
+            Mode Ruangan Aktif (Kontrol IoT)
+          </Typography>
+          <ToggleButtonGroup
+            value={activeDevice.active_category_id || 1}
+            exclusive
+            onChange={handleModeChange}
+            aria-label='active room mode'
+            fullWidth
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 2,
+              '& .MuiToggleButtonGroup-grouped': {
+                border: '1px solid !important',
+                borderColor: 'divider !important',
+                borderRadius: '8px !important',
+                textTransform: 'none',
+                flex: 1,
+                minWidth: '140px',
+                py: 2
+              }
+            }}
+          >
+            {categoryModes.map((opt) => {
+              const isSelected = (activeDevice.active_category_id || 1) === opt.id
+              const themeColor = theme.palette[opt.colorKey]?.main || theme.palette.secondary.main
+              return (
+                <ToggleButton
+                  key={opt.id}
+                  value={opt.id}
+                  sx={{
+                    color: 'text.secondary',
+                    backgroundColor: 'background.paper',
+                    '&.Mui-selected': {
+                      color: 'white',
+                      backgroundColor: themeColor,
+                      borderColor: themeColor,
+                      '&:hover': {
+                        backgroundColor: themeColor,
+                        filter: 'brightness(0.9)'
+                      }
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <i className={opt.icon} style={{ fontSize: '1.1rem' }} />
+                    <Typography variant='body2' color='inherit' fontWeight={isSelected ? 600 : 400}>
+                      {opt.label}
+                    </Typography>
+                  </Box>
+                </ToggleButton>
+              )
+            })}
+          </ToggleButtonGroup>
+        </Box>
+
         {/* ── CHART ────────────────────────────────────────────────────── */}
-        <Box sx={{ mt: 4 }}>
+        <Box sx={{ mt: 6 }}>
           <Box sx={{ mb: 1.5 }}>
             <Typography variant='subtitle1' fontWeight={600}>
               Tren Suhu Dalam vs Luar Ruangan
@@ -340,16 +479,16 @@ const IoTTempMonitor = () => {
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <ReferenceLine y={30} stroke='#e74c3c' strokeDasharray='4 4'
-                  label={{ value: 'Max 30°C', fontSize: 9, fill: '#e74c3c', position: 'insideTopRight' }} />
-                <ReferenceLine y={26} stroke='#3498db' strokeDasharray='4 4'
-                  label={{ value: 'Min 26°C', fontSize: 9, fill: '#3498db', position: 'insideBottomRight' }} />
+                 <ReferenceLine y={30} stroke={theme.palette.error.main} strokeDasharray='4 4'
+                  label={{ value: 'Max 30°C', fontSize: 9, fill: theme.palette.error.main, position: 'insideTopRight' }} />
+                <ReferenceLine y={26} stroke={theme.palette.info.main} strokeDasharray='4 4'
+                  label={{ value: 'Min 26°C', fontSize: 9, fill: theme.palette.info.main, position: 'insideBottomRight' }} />
 
                 <Line
                   type='monotone'
                   dataKey='suhuDalam'
                   name='Suhu Dalam (°C)'
-                  stroke='#e74c3c'
+                  stroke={theme.palette.primary.main}
                   dot={false}
                   strokeWidth={2}
                   activeDot={{ r: 4 }}
@@ -361,7 +500,7 @@ const IoTTempMonitor = () => {
                     type='monotone'
                     dataKey='suhuLuar'
                     name={`Suhu Luar${locationName ? ` (${locationName})` : ''} (°C)`}
-                    stroke='#f39c12'
+                    stroke={theme.palette.warning.main}
                     dot={false}
                     strokeWidth={2}
                     strokeDasharray='6 3'
@@ -375,11 +514,11 @@ const IoTTempMonitor = () => {
           {/* Keterangan warna */}
           <Box sx={{ display: 'flex', gap: 3, mt: 1, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Box sx={{ width: 20, height: 2, bgcolor: '#e74c3c', borderRadius: 1 }} />
+              <Box sx={{ width: 20, height: 2, bgcolor: theme.palette.primary.main, borderRadius: 1 }} />
               <Typography variant='caption' color='text.secondary'>Suhu dalam ruangan</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Box sx={{ width: 20, height: 2, bgcolor: '#f39c12', borderRadius: 1, opacity: outdoorTemp != null ? 1 : 0.35 }} />
+              <Box sx={{ width: 20, height: 2, bgcolor: theme.palette.warning.main, borderRadius: 1, opacity: outdoorTemp != null ? 1 : 0.35 }} />
               <Typography variant='caption' color='text.secondary'>
                 {outdoorTemp != null
                   ? `Suhu luar (${outdoorTemp}°C${outdoorHum != null ? `, RH ${outdoorHum}%` : ''})`

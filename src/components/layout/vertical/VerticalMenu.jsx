@@ -38,44 +38,33 @@ const VerticalMenu = ({ scrollMenu }) => {
         renderExpandedMenuItemIcon={{ icon: <i className='ri-circle-line' /> }}
         menuSectionStyles={menuSectionStyles(theme)}
       >
-        <SubMenu
-          label='Dashboards'
-          icon={<i className='ri-home-smile-line' />}
+        <MenuItem
+          href='/'
+          icon={<i className='ri-dashboard-line' />}
         >
-          <MenuItem 
-            href='/' 
-            icon={<i className='ri-bar-chart-2-line' />}
-          >
-            Analytics
-          </MenuItem>
+          Dashboard
+        </MenuItem>
 
-          <MenuItem 
-            href='/ai-analysis' 
-            icon={<i className='ri-magic-line' />} // Atau 'ri-brain-line'
-          >
-            AI Data Analysis
-          </MenuItem>
-        </SubMenu>
+        <MenuItem
+          href='/ai-analysis'
+          icon={<i className='ri-magic-line' />}
+        >
+          AI Analysis
+        </MenuItem>
 
-        {/* <MenuSection label='Apps & Pages'>
-          <MenuItem href='/account-settings' icon={<i className='ri-user-settings-line' />}>
-            Account Settings
-          </MenuItem>
-          <SubMenu label='Auth Pages' icon={<i className='ri-shield-keyhole-line' />}>
-            <MenuItem href='/login' target='_blank'>Login</MenuItem>
-            <MenuItem href='/register' target='_blank'>Register</MenuItem>
-            <MenuItem href='/forgot-password' target='_blank'>Forgot Password</MenuItem>
-          </SubMenu>
-          <MenuItem href='/card-basic' icon={<i className='ri-bar-chart-box-line' />}>
-            Cards
-          </MenuItem>
-        </MenuSection>
+        <MenuItem
+          href='/devices'
+          icon={<i className='ri-router-line' />}
+        >
+          Perangkat Saya
+        </MenuItem>
 
-        <MenuSection label='Forms & Tables'>
-          <MenuItem href='/form-layouts' icon={<i className='ri-layout-4-line' />}>
-            Form Layouts
-          </MenuItem>
-        </MenuSection> */}
+        <MenuItem
+          href='/account-settings'
+          icon={<i className='ri-user-settings-line' />}
+        >
+          Pengaturan Akun
+        </MenuItem>
       </Menu>
     </ScrollWrapper>
   )

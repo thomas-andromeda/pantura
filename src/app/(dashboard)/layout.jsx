@@ -8,19 +8,27 @@ import Navigation from '@components/layout/vertical/Navigation'
 import Navbar from '@components/layout/vertical/Navbar'
 import VerticalFooter from '@components/layout/vertical/Footer'
 
+// Context Imports
+import { AuthProvider } from '@/contexts/AuthContext'
+import { DeviceProvider } from '@/contexts/DeviceContext'
+
 const Layout = async ({ children }) => {
   // Vars
   const direction = 'ltr'
 
   return (
     <Providers direction={direction}>
-      <LayoutWrapper
-        verticalLayout={
-          <VerticalLayout navigation={<Navigation />} navbar={<Navbar />} footer={<VerticalFooter />}>
-            {children}
-          </VerticalLayout>
-        }
-      />
+      <AuthProvider>
+        <DeviceProvider>
+          <LayoutWrapper
+            verticalLayout={
+              <VerticalLayout navigation={<Navigation />} navbar={<Navbar />} footer={<VerticalFooter />}>
+                {children}
+              </VerticalLayout>
+            }
+          />
+        </DeviceProvider>
+      </AuthProvider>
     </Providers>
   )
 }

@@ -7,12 +7,14 @@ import {
   Alert, AlertTitle, Button, CircularProgress, ToggleButtonGroup, ToggleButton,
   Tooltip as MuiTooltip
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import {
   LineChart, Line, ScatterChart, Scatter, BarChart, Bar,
   PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine, ReferenceArea
 } from 'recharts'
 import { supabase } from '@/libs/supabaseClient'
+import { useDevice } from '@/contexts/DeviceContext'
 
 // ─── KONSTANTA BATAS KONDISI ──────────────────────────────────────────────────
 const BATAS_SUHU_MIN   = 25.0
@@ -23,20 +25,20 @@ const LIMIT_DATA       = 2598
 
 // ─── KATEGORI ────────────────────────────────────────────────────────────────
 const KATEGORI_MAP = {
-  1: { label: 'PC & AC Mati',    short: 'PC & AC Mati',    color: '#95a5a6', chipColor: 'default',   icon: '💤' },
-  2: { label: 'PC Nyala',        short: 'PC Nyala',        color: '#f39c12', chipColor: 'warning',   icon: '🖥️' },
-  3: { label: 'PC & AC Nyala',   short: 'PC & AC Nyala',   color: '#2ecc71', chipColor: 'success',   icon: '🖥️❄️' },
-  4: { label: 'AC Nyala',        short: 'AC Nyala',        color: '#3498db', chipColor: 'info',      icon: '❄️' },
+  1: { label: 'PC & AC Mati',    short: 'PC & AC Mati',    colorKey: 'secondary', chipColor: 'default',   icon: 'ri-power-off-line' },
+  2: { label: 'PC Nyala',        short: 'PC Nyala',        colorKey: 'warning',   chipColor: 'warning',   icon: 'ri-computer-line' },
+  3: { label: 'PC & AC Nyala',   short: 'PC & AC Nyala',   colorKey: 'success',   chipColor: 'success',   icon: 'ri-cpu-line' },
+  4: { label: 'AC Nyala',        short: 'AC Nyala',        colorKey: 'info',      chipColor: 'info',      icon: 'ri-temp-cold-line' },
 }
 
-const KONDISI_COLOR = {
-  'Normal':        '#2ecc71',
-  'Panas & Lembap':'#e74c3c',
-  'Terlalu Panas': '#e67e22',
-  'Terlalu Dingin':'#3498db',
-  'Terlalu Lembap':'#9b59b6',
-  'Terlalu Kering':'#f39c12',
-  'Tidak Normal':  '#95a5a6',
+const KONDISI_KEYS = {
+  'Normal':        'success',
+  'Panas & Lembap':'error',
+  'Terlalu Panas': 'warning',
+  'Terlalu Dingin':'info',
+  'Terlalu Lembap':'secondary',
+  'Terlalu Kering':'warning',
+  'Tidak Normal':  'secondary',
 }
 
 // ─── HELPERS ANALITIK ─────────────────────────────────────────────────────────
@@ -151,44 +153,44 @@ const buatRekomendasiKategori = (suhuMean, lembabMean, pctAnomali, kondisiPred, 
   const katLabel = katInfo ? katInfo.label : 'semua kondisi'
 
   // Header konteks kategori
-  reks.push(`📊 Analisis untuk mode: ${katLabel}`)
+  reks.push(`Analisis untuk mode: ${katLabel}`)
 
   // Suhu
   if (suhuMean > BATAS_SUHU_MAX) {
-    if (categoryId === 2) reks.push('🔥 Suhu tinggi saat PC menyala tanpa AC. Pertimbangkan menyalakan AC untuk mencegah overheating.')
-    else if (categoryId === 3) reks.push('🔥 Suhu masih tinggi meski PC & AC menyala. Periksa efektivitas AC atau tambah ventilasi.')
-    else if (categoryId === 1) reks.push('🔥 Suhu tinggi meski semua perangkat mati. Kemungkinan panas dari luar (sinar matahari/cuaca).')
-    else if (categoryId === 4) reks.push('🔥 Suhu tinggi meski AC menyala tanpa PC. Periksa performa AC atau kebocoran udara dingin.')
-    else reks.push('🔥 Suhu rata-rata terlalu tinggi. Pertimbangkan penggunaan AC atau kipas.')
+    if (categoryId === 2) reks.push('Temperatur terdeteksi tinggi saat PC aktif tanpa pendingin udara. Disarankan mengaktifkan pendingin udara untuk mencegah overheating.')
+    else if (categoryId === 3) reks.push('Temperatur tetap tinggi meskipun PC dan pendingin udara aktif. Diperlukan pemeriksaan kapasitas pendinginan atau penambahan sirkulasi udara.')
+    else if (categoryId === 1) reks.push('Temperatur terdeteksi tinggi meskipun seluruh perangkat nonaktif. Kondisi ini kemungkinan dipengaruhi oleh faktor lingkungan eksternal.')
+    else if (categoryId === 4) reks.push('Temperatur terdeteksi tinggi meskipun pendingin udara aktif tanpa beban kerja PC. Periksa kemungkinan kebocoran udara dingin atau penurunan performa AC.')
+    else reks.push('Temperatur rata-rata berada di atas batas nyaman. Disarankan pengkondisian udara lebih lanjut.')
   } else if (suhuMean < BATAS_SUHU_MIN) {
-    if (categoryId === 3) reks.push('🧊 Suhu sangat rendah saat PC & AC menyala. Kurangi intensitas AC atau naikkan set point.')
-    else if (categoryId === 4) reks.push('🧊 AC terlalu dingin saat PC mati. Matikan atau naikkan suhu AC.')
-    else reks.push('🧊 Suhu rata-rata terlalu rendah. Pertimbangkan mengurangi pendinginan atau menggunakan pemanas.')
+    if (categoryId === 3) reks.push('Temperatur terdeteksi rendah saat pendingin udara aktif. Disarankan menaikkan temperatur setpoint AC guna efisiensi energi.')
+    else if (categoryId === 4) reks.push('Temperatur berada di bawah rentang nyaman saat beban kerja PC minim. Disarankan mengurangi intensitas pendinginan.')
+    else reks.push('Temperatur rata-rata berada di bawah batas nyaman. Disarankan untuk mengurangi intensitas pendinginan.')
   } else {
-    if (categoryId === 3) reks.push('✅ Kombinasi PC & AC menghasilkan suhu yang ideal. Pertahankan pengaturan ini.')
-    else if (categoryId === 2) reks.push('✅ Suhu terjaga baik meski PC menyala. Ventilasi ruangan sudah cukup baik.')
-    else reks.push('✅ Suhu rata-rata sudah dalam zona nyaman.')
+    if (categoryId === 3) reks.push('Kombinasi operasional perangkat dan pendingin udara menghasilkan temperatur yang ideal. Pengaturan saat ini dinilai optimal.')
+    else if (categoryId === 2) reks.push('Temperatur ruangan terjaga stabil meskipun PC aktif. Sirkulasi udara ruangan dinilai memadai.')
+    else reks.push('Temperatur rata-rata berada dalam rentang zona nyaman.')
   }
 
   // Kelembapan
   if (lembabMean > BATAS_LEMBAB_MAX) {
-    if (categoryId === 3) reks.push('💧 Kelembapan tinggi meski AC menyala. AC mungkin tidak memiliki fitur dehumidifier yang baik.')
-    else reks.push('💧 Kelembapan terlalu tinggi. Dehumidifier atau ventilasi lebih baik disarankan.')
+    if (categoryId === 3) reks.push('Kelembapan udara terdeteksi tinggi meskipun pendingin udara aktif. Periksa fungsionalitas dehumidifikasi pada perangkat pendingin.')
+    else reks.push('Kelembapan udara terdeteksi tinggi. Disarankan untuk menggunakan perangkat dehumidifier atau meningkatkan ventilasi.')
   } else if (lembabMean < BATAS_LEMBAB_MIN) {
-    if (categoryId === 4 || categoryId === 3) reks.push('🌵 AC membuat udara terlalu kering. Pertimbangkan humidifier untuk kenyamanan.')
-    else reks.push('🌵 Kelembapan terlalu rendah. Humidifier atau tanaman hias bisa membantu.')
+    if (categoryId === 4 || categoryId === 3) reks.push('Operasional pendingin udara menyebabkan kelembapan turun di bawah batas nyaman (kondisi kering). Disarankan penggunaan humidifier.')
+    else reks.push('Kelembapan udara berada di bawah rentang nyaman. Disarankan penambahan perangkat humidifier untuk menjaga kelembapan.')
   } else {
-    reks.push('✅ Kelembapan sudah dalam zona nyaman.')
+    reks.push('Kelembapan udara berada dalam rentang zona nyaman.')
   }
 
   // Anomali
   if (pctAnomali > 10) {
-    reks.push(`⚠️ Anomali cukup tinggi (${pctAnomali.toFixed(1)}%) pada mode ${katLabel}. Cek kondisi sensor atau sumber panas/dingin tidak normal.`)
+    reks.push(`Tingkat anomali terdeteksi signifikan (${pctAnomali.toFixed(1)}%) pada mode ${katLabel}. Disarankan verifikasi kalibrasi sensor atau pemeriksaan fluktuasi suhu tidak wajar.`)
   }
 
   // Prediksi
   if (kondisiPred !== 'Normal') {
-    reks.push(`🔮 Prediksi kondisi berikutnya: "${kondisiPred}" pada mode ${katLabel}. Siapkan tindakan pencegahan.`)
+    reks.push(`Prediksi matematis mengindikasikan kecenderungan kondisi berikutnya adalah "${kondisiPred}" pada mode ${katLabel}. Langkah preventif disarankan.`)
   }
 
   return reks
@@ -211,7 +213,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 // ─── FILTER CHIP BAR ──────────────────────────────────────────────────────────
-const CategoryFilterBar = ({ activeFilter, onChange, counts }) => (
+const CategoryFilterBar = ({ activeFilter, onChange, counts, theme }) => (
   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
     <Typography variant='body2' color='text.secondary' sx={{ mr: 0.5, fontWeight: 600 }}>Filter:</Typography>
     <ToggleButtonGroup
@@ -222,30 +224,37 @@ const CategoryFilterBar = ({ activeFilter, onChange, counts }) => (
       sx={{ flexWrap: 'wrap', gap: 0.5 }}
     >
       <ToggleButton value='all' sx={{ borderRadius: '20px !important', px: 2, border: '1px solid !important', fontSize: '0.75rem' }}>
-        🔍 Semua ({counts.all})
+        Semua ({counts.all})
       </ToggleButton>
-      {Object.entries(KATEGORI_MAP).map(([id, info]) => (
-        <MuiTooltip key={id} title={info.label} arrow>
-          <ToggleButton
-            value={parseInt(id)}
-            sx={{
-              borderRadius: '20px !important',
-              px: 2,
-              border: '1px solid !important',
-              fontSize: '0.75rem',
-              '&.Mui-selected': { bgcolor: info.color + '22', borderColor: info.color + ' !important', color: info.color },
-            }}
-          >
-            {info.icon} {info.short} ({counts[id] ?? 0})
-          </ToggleButton>
-        </MuiTooltip>
-      ))}
+      {Object.entries(KATEGORI_MAP).map(([id, info]) => {
+        const color = theme.palette[info.colorKey]?.main || theme.palette.secondary.main
+        return (
+          <MuiTooltip key={id} title={info.label} arrow>
+            <ToggleButton
+              value={parseInt(id)}
+              sx={{
+                borderRadius: '20px !important',
+                px: 2,
+                border: '1px solid !important',
+                fontSize: '0.75rem',
+                '&.Mui-selected': { bgcolor: `${color}22`, borderColor: `${color} !important`, color: color },
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <i className={info.icon} style={{ fontSize: '0.85rem' }} />
+                <span>{info.short} ({counts[id] ?? 0})</span>
+              </Box>
+            </ToggleButton>
+          </MuiTooltip>
+        )
+      })}
     </ToggleButtonGroup>
   </Box>
 )
 
 // ─── PROCESS DATA (menerima data mentah + filter) ─────────────────────────────
-const processDataAI = (rawData, filterCategory) => {
+const processDataAI = (rawData, filterCategory, theme) => {
+  const getThemeColor = (key) => theme.palette[key]?.main || theme.palette.secondary.main
   // Filter berdasarkan kategori
   const filtered = filterCategory === 'all'
     ? rawData
@@ -278,7 +287,7 @@ const processDataAI = (rawData, filterCategory) => {
   const pieData = kondisiEntries.map(([name, value]) => ({
     name, value,
     pct: (value / data.length * 100).toFixed(1),
-    fill: KONDISI_COLOR[name] || '#95a5a6'
+    fill: getThemeColor(KONDISI_KEYS[name])
   }))
 
   // Korelasi & tren
@@ -316,7 +325,7 @@ const processDataAI = (rawData, filterCategory) => {
     icon:  info.icon,
     value: distKategori[parseInt(id)] || 0,
     pct:   (((distKategori[parseInt(id)] || 0) / rawData.length) * 100).toFixed(1),
-    fill:  info.color,
+    fill:  getThemeColor(info.colorKey),
   }))
 
   // Rata-rata suhu per kategori (dari seluruh data mentah)
@@ -329,7 +338,7 @@ const processDataAI = (rawData, filterCategory) => {
       icon:     info.icon,
       avgSuhu:  parseFloat(avgS.toFixed(2)),
       avgLembab:parseFloat(avgL.toFixed(2)),
-      fill:     info.color,
+      fill:     getThemeColor(info.colorKey),
       count:    subset.length,
     }
   })
@@ -404,6 +413,8 @@ const processDataAI = (rawData, filterCategory) => {
 
 // ─── KOMPONEN UTAMA ───────────────────────────────────────────────────────────
 const AIAnalysisPage = () => {
+  const theme = useTheme()
+  const { activeDevice } = useDevice()
   const [loading,        setLoading]        = useState(true)
   const [rawData,        setRawData]        = useState([])
   const [activeFilter,   setActiveFilter]   = useState('all')
@@ -420,26 +431,47 @@ const AIAnalysisPage = () => {
   }
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('sensor_data')
-      .select('suhu, kelembapan, created_at, category_id')
-      .order('created_at', { ascending: false })
-      .limit(LIMIT_DATA)
-    if (data?.length > 0) {
-      setRawData(data)
-      setCategoryCounts(buildCounts(data))
-      setResult(processDataAI(data, 'all'))
+    if (!activeDevice?.device_token) {
+      setRawData([])
+      setCategoryCounts({ all: 0 })
+      setResult(null)
+      setLoading(false)
+      return
     }
-    setLoading(false)
-  }, [])
+
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('sensor_data')
+        .select('suhu, kelembapan, created_at, category_id')
+        .eq('device_token', activeDevice.device_token)
+        .order('created_at', { ascending: false })
+        .limit(LIMIT_DATA)
+
+      if (error) throw error
+
+      if (data && data.length > 0) {
+        setRawData(data)
+        setCategoryCounts(buildCounts(data))
+      } else {
+        setRawData([])
+        setCategoryCounts({ all: 0 })
+      }
+    } catch (err) {
+      console.error('fetchData AI error:', err.message)
+      setRawData([])
+      setCategoryCounts({ all: 0 })
+    } finally {
+      setLoading(false)
+    }
+  }, [activeDevice?.device_token])
 
   // Re-proses saat filter berubah
   useEffect(() => {
     if (rawData.length > 0) {
-      setResult(processDataAI(rawData, activeFilter))
+      setResult(processDataAI(rawData, activeFilter, theme))
     }
-  }, [activeFilter, rawData])
+  }, [activeFilter, rawData, theme])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -461,6 +493,18 @@ const AIAnalysisPage = () => {
 
   const fmt2 = n => parseFloat(n).toFixed(2)
   const activeCatInfo = activeFilter !== 'all' ? KATEGORI_MAP[activeFilter] : null
+  const activeCatColor = activeCatInfo ? (theme.palette[activeCatInfo.colorKey]?.main || theme.palette.secondary.main) : null
+
+  if (!activeDevice) {
+    return (
+      <Box className='p-6'>
+        <Alert severity='warning'>
+          <AlertTitle>Perangkat Belum Dipilih</AlertTitle>
+          Silakan pilih perangkat aktif dari menu dropdown di navbar atas untuk melihat analisis AI.
+        </Alert>
+      </Box>
+    )
+  }
 
   return (
     <Grid container spacing={4}>
@@ -468,9 +512,9 @@ const AIAnalysisPage = () => {
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant='h5'>Advanced AI Analysis</Typography>
+          <Typography variant='h5'>Advanced AI Analysis — {activeDevice.device_name}</Typography>
           <Typography variant='body2' color='text.secondary'>
-            Analisis statistik mendalam dari sensor kamar (Last {LIMIT_DATA} data)
+            Analisis statistik mendalam dari sensor perangkat {activeDevice.device_name} (Last {LIMIT_DATA} data)
           </Typography>
         </Box>
         <Button variant='outlined' size='small' onClick={fetchData} disabled={loading}>
@@ -486,16 +530,24 @@ const AIAnalysisPage = () => {
             activeFilter={activeFilter}
             onChange={setActiveFilter}
             counts={categoryCounts}
+            theme={theme}
           />
-          {activeCatInfo && (
-            <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: activeCatInfo.color }} />
-              <Typography variant='caption' color='text.secondary'>
-                Menampilkan data untuk mode: <strong style={{ color: activeCatInfo.color }}>{activeCatInfo.icon} {activeCatInfo.label}</strong>
-                {' '}— {categoryCounts[activeFilter] ?? 0} dari {categoryCounts.all} data total
-              </Typography>
-            </Box>
-          )}
+          {activeCatInfo && (() => {
+            const activeCatColor = theme.palette[activeCatInfo.colorKey]?.main || theme.palette.secondary.main
+            return (
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: activeCatColor }} />
+                <Typography variant='caption' color='text.secondary' sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                  Menampilkan data untuk mode:{' '}
+                  <strong style={{ color: activeCatColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <i className={activeCatInfo.icon} style={{ fontSize: '0.85rem' }} />
+                    {activeCatInfo.label}
+                  </strong>
+                  {' '}— {categoryCounts[activeFilter] ?? 0} dari {categoryCounts.all} data total
+                </Typography>
+              </Box>
+            )
+          })()}
         </Card>
       </Grid>
 
@@ -509,20 +561,24 @@ const AIAnalysisPage = () => {
               <AlertTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 Status Kamar Saat Ini —&nbsp;
                 <Chip label={result.kondisiNow.label} color={result.kondisiNow.color} size='small' />
-                {result.katNow && (
-                  <Chip
-                    label={`${result.katNow.icon} ${result.katNow.label}`}
-                    size='small'
-                    sx={{ bgcolor: result.katNow.color + '22', color: result.katNow.color, borderColor: result.katNow.color, border: '1px solid' }}
-                  />
-                )}
+                {result.katNow && (() => {
+                  const color = theme.palette[result.katNow.colorKey]?.main || theme.palette.secondary.main
+                  return (
+                    <Chip
+                      icon={<i className={result.katNow.icon} style={{ fontSize: '0.8rem', color: color, marginLeft: '4px' }} />}
+                      label={result.katNow.label}
+                      size='small'
+                      sx={{ bgcolor: `${color}22`, color: color, borderColor: color, border: '1px solid' }}
+                    />
+                  )
+                })()}
               </AlertTitle>
               <Typography variant='body2'>
                 <strong>Waktu:</strong> {result.waktuNow}&emsp;
                 <strong>Suhu:</strong> {result.latest.suhu} °C&emsp;
                 <strong>Kelembapan:</strong> {result.latest.kelembapan}%
               </Typography>
-              <Typography variant='body2' sx={{ mt: 0.5 }}>⚡ {result.alertNow.msg}</Typography>
+              <Typography variant='body2' sx={{ mt: 0.5 }}>Status analitik: {result.alertNow.msg}</Typography>
             </Alert>
           </Grid>
 
@@ -544,7 +600,10 @@ const AIAnalysisPage = () => {
                     const d = payload[0]?.payload
                     return (
                       <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, fontSize: '0.75rem', boxShadow: 3 }}>
-                        <Typography variant='caption' fontWeight={700}>{d.icon} {d.name}</Typography>
+                        <Typography variant='caption' fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <i className={d.icon} style={{ fontSize: '0.85rem' }} />
+                          {d.name}
+                        </Typography>
                         <div>Jumlah: <strong>{d.value}</strong> data</div>
                         <div>Proporsi: <strong>{d.pct}%</strong></div>
                       </Box>
@@ -581,7 +640,10 @@ const AIAnalysisPage = () => {
                     const d = payload[0]?.payload
                     return (
                       <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1.5, fontSize: '0.75rem', boxShadow: 3 }}>
-                        <Typography variant='caption' fontWeight={700}>{d.icon} {d.name}</Typography>
+                        <Typography variant='caption' fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <i className={d.icon} style={{ fontSize: '0.85rem' }} />
+                          {d.name}
+                        </Typography>
                         <div>Avg Suhu: <strong>{d.avgSuhu} °C</strong></div>
                         <div>Avg Kelembapan: <strong>{d.avgLembab}%</strong></div>
                         <div>Jumlah data: <strong>{d.count}</strong></div>
@@ -590,19 +652,19 @@ const AIAnalysisPage = () => {
                   }}
                 />
                 <Legend />
-                <ReferenceArea yAxisId='s' y1={BATAS_SUHU_MAX} y2={50} fill='#FF4500' fillOpacity={0.08} />
+                <ReferenceArea yAxisId='s' y1={BATAS_SUHU_MAX} y2={50} fill={theme.palette.error.main} fillOpacity={0.08} />
                   
                   {/* 2. Garis yang lebih tebal dengan Label yang memiliki 'background' via dy/dx */}
                   <ReferenceLine 
                     yAxisId='s' 
                     y={BATAS_SUHU_MAX} 
-                    stroke='#FF4500' 
+                    stroke={theme.palette.error.main} 
                     strokeWidth={2}
                     strokeDasharray='3 3'
                     label={{ 
                       value: `MAX ${BATAS_SUHU_MAX}°C`, 
                       position: 'insideTopLeft', 
-                      fill: '#FF4500',
+                      fill: theme.palette.error.main,
                       fontSize: 11,
                       fontWeight: 800 
                     }} 
@@ -611,13 +673,13 @@ const AIAnalysisPage = () => {
                   <ReferenceLine 
                     yAxisId='s' 
                     y={BATAS_SUHU_MIN} 
-                    stroke='#00BFFF' 
+                    stroke={theme.palette.info.main} 
                     strokeWidth={2}
                     strokeDasharray='3 3'
                     label={{ 
                       value: `MIN ${BATAS_SUHU_MIN}°C`, 
                       position: 'insideBottomLeft', 
-                      fill: '#00BFFF',
+                      fill: theme.palette.info.main,
                       fontSize: 11,
                       fontWeight: 800 
                     }} 
@@ -631,16 +693,32 @@ const AIAnalysisPage = () => {
               </BarChart>
             </ResponsiveContainer>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-              {Object.entries(KATEGORI_MAP).map(([id, info]) => (
-                <Chip key={id} label={`${info.icon} ${info.short}`} size='small'
-                  sx={{ bgcolor: info.color + '22', color: info.color, border: `1px solid ${info.color}` }} />
-              ))}
+              {Object.entries(KATEGORI_MAP).map(([id, info]) => {
+                const color = theme.palette[info.colorKey]?.main || theme.palette.secondary.main
+                return (
+                  <Chip key={id} icon={<i className={info.icon} style={{ fontSize: '0.8rem', color: color, marginLeft: '4px' }} />} label={info.short} size='small'
+                    sx={{ bgcolor: `${color}22`, color: color, border: `1px solid ${color}` }} />
+                )
+              })}
             </Box>
           </ChartCard>
 
           {/* ═══ CHART 1 — TREN SUHU & KELEMBAPAN ══════════════════════════ */}
           <ChartCard
-            title={`Visualisasi Tren Suhu & Kelembapan${activeCatInfo ? ` — ${activeCatInfo.icon} ${activeCatInfo.label}` : ' — Semua Mode'}`}
+            title={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <span>Visualisasi Tren Suhu & Kelembapan</span>
+                {activeCatInfo && (
+                  <Chip
+                    icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                    label={activeCatInfo.label}
+                    size='small'
+                    variant='outlined'
+                    sx={{ borderColor: activeCatColor, color: activeCatColor }}
+                  />
+                )}
+              </Box>
+            }
             subheader={`Periode: ${result.rentangAwal} s/d ${result.rentangAkhir} · ${result.totalData} data`}
           >
             <ResponsiveContainer width='100%' height={280}>
@@ -651,10 +729,10 @@ const AIAnalysisPage = () => {
                 <YAxis yAxisId='l' orientation='right' domain={['auto', 'auto']} tick={{ fontSize: 10 }} label={{ value: 'Kelembapan (%)', angle: 90, position: 'insideRight', fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MAX} stroke='#e74c3c' strokeDasharray='4 4' label={{ value: `Max ${BATAS_SUHU_MAX}°C`, fontSize: 9, fill: '#e74c3c' }} />
-                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MIN} stroke='#3498db' strokeDasharray='4 4' label={{ value: `Min ${BATAS_SUHU_MIN}°C`, fontSize: 9, fill: '#3498db' }} />
-                <Line yAxisId='s' type='monotone' dataKey='suhu'       name='Suhu (°C)'      stroke={activeCatInfo?.color ?? '#e74c3c'} dot={false} strokeWidth={2} />
-                <Line yAxisId='l' type='monotone' dataKey='kelembapan' name='Kelembapan (%)' stroke='#3498db' dot={false} strokeWidth={2} />
+                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MAX} stroke={theme.palette.error.main} strokeDasharray='4 4' label={{ value: `Max ${BATAS_SUHU_MAX}°C`, fontSize: 9, fill: theme.palette.error.main }} />
+                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MIN} stroke={theme.palette.info.main} strokeDasharray='4 4' label={{ value: `Min ${BATAS_SUHU_MIN}°C`, fontSize: 9, fill: theme.palette.info.main }} />
+                <Line yAxisId='s' type='monotone' dataKey='suhu'       name='Suhu (°C)'      stroke={activeCatColor || theme.palette.primary.main} dot={false} strokeWidth={2} />
+                <Line yAxisId='l' type='monotone' dataKey='kelembapan' name='Kelembapan (%)' stroke={theme.palette.info.main} dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -680,9 +758,9 @@ const AIAnalysisPage = () => {
                   )
                 }} />
                 <Legend />
-                <ReferenceArea x1={BATAS_SUHU_MIN} x2={BATAS_SUHU_MAX} y1={BATAS_LEMBAB_MIN} y2={BATAS_LEMBAB_MAX} fill='#2ecc71' fillOpacity={0.08} label={{ value: 'Zona Nyaman', fontSize: 10, fill: '#2ecc71' }} />
-                <Scatter name='Normal'  data={result.scatterNormal}  fill={activeCatInfo?.color ?? '#5b8dee'} opacity={0.65} />
-                <Scatter name='Anomali' data={result.scatterAnomali} fill='#e74c3c' shape='cross' opacity={0.9} />
+                <ReferenceArea x1={BATAS_SUHU_MIN} x2={BATAS_SUHU_MAX} y1={BATAS_LEMBAB_MIN} y2={BATAS_LEMBAB_MAX} fill={theme.palette.success.main} fillOpacity={0.08} label={{ value: 'Zona Nyaman', fontSize: 10, fill: theme.palette.success.main }} />
+                <Scatter name='Normal'  data={result.scatterNormal}  fill={activeCatColor || theme.palette.primary.main} opacity={0.65} />
+                <Scatter name='Anomali' data={result.scatterAnomali} fill={theme.palette.error.main} shape='cross' opacity={0.9} />
               </ScatterChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -695,8 +773,8 @@ const AIAnalysisPage = () => {
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} label={{ value: 'Suhu (°C)', angle: -90, position: 'insideLeft', fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line type='stepAfter' dataKey='suhu'    name='Suhu'         stroke={activeCatInfo?.color ?? '#e8a09a'} dot={false} strokeWidth={1.5} />
-                <Line type='monotone'  dataKey='anomali' name='Anomali Suhu' stroke='#8B0000' dot={{ r: 5, fill: '#8B0000', strokeWidth: 0 }} activeDot={{ r: 7 }} connectNulls={false} strokeWidth={0} />
+                <Line type='stepAfter' dataKey='suhu'    name='Suhu'         stroke={activeCatColor || theme.palette.primary.light} dot={false} strokeWidth={1.5} />
+                <Line type='monotone'  dataKey='anomali' name='Anomali Suhu' stroke={theme.palette.error.dark || '#8B0000'} dot={{ r: 5, fill: theme.palette.error.dark || '#8B0000', strokeWidth: 0 }} activeDot={{ r: 7 }} connectNulls={false} strokeWidth={0} />
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -730,19 +808,21 @@ const AIAnalysisPage = () => {
                 <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
                   if (!active || !payload?.length) return null
                   const d = payload[0]?.payload
+                  const kondisiColor = theme.palette[KONDISI_KEYS[d?.kondisi]]?.main || theme.palette.secondary.main
                   return (
                     <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1, fontSize: '0.75rem', boxShadow: 3 }}>
                       <div>Waktu: <strong>{d?.waktu}</strong></div>
                       <div>Suhu: <strong>{d?.suhu}°C</strong></div>
-                      <div>Kondisi: <strong style={{ color: KONDISI_COLOR[d?.kondisi] }}>{d?.kondisi}</strong></div>
+                      <div>Kondisi: <strong style={{ color: kondisiColor }}>{d?.kondisi}</strong></div>
                     </Box>
                   )
                 }} />
                 <Legend />
-                {Object.keys(KONDISI_COLOR).map(label => {
+                {Object.entries(KONDISI_KEYS).map(([label, colorKey]) => {
                   const pts = result.kondisiTimeline.filter(d => d.kondisi === label)
                   if (!pts.length) return null
-                  return <Scatter key={label} name={label} data={pts} fill={KONDISI_COLOR[label]} opacity={0.8} />
+                  const color = theme.palette[colorKey]?.main || theme.palette.secondary.main
+                  return <Scatter key={label} name={label} data={pts} fill={color} opacity={0.8} />
                 })}
               </ScatterChart>
             </ResponsiveContainer>
@@ -750,7 +830,20 @@ const AIAnalysisPage = () => {
 
           {/* ═══ CHART 4 — BAR POLA PER JAM ══════════════════════════════ */}
           <ChartCard
-            title={`Pola Suhu & Kelembapan per Jam${activeCatInfo ? ` — ${activeCatInfo.icon} ${activeCatInfo.label}` : ''}`}
+            title={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <span>Pola Suhu & Kelembapan per Jam</span>
+                {activeCatInfo && (
+                  <Chip
+                    icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                    label={activeCatInfo.label}
+                    size='small'
+                    variant='outlined'
+                    sx={{ borderColor: activeCatColor, color: activeCatColor }}
+                  />
+                )}
+              </Box>
+            }
             subheader='Rata-rata nilai sensor berdasarkan jam'
           >
             <ResponsiveContainer width='100%' height={250}>
@@ -761,17 +854,30 @@ const AIAnalysisPage = () => {
                 <YAxis yAxisId='l' orientation='right' domain={['auto', 'auto']} tick={{ fontSize: 10 }} label={{ value: 'Kelembapan (%)', angle: 90, position: 'insideRight', fontSize: 10 }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MAX} stroke='#e74c3c' strokeDasharray='4 4' label={{ value: 'Batas Max', fontSize: 9, fill: '#e74c3c' }} />
-                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MIN} stroke='#3498db' strokeDasharray='4 4' label={{ value: 'Batas Min', fontSize: 9, fill: '#3498db' }} />
-                <Bar yAxisId='s' dataKey='avgSuhu'   name='Avg Suhu (°C)'      fill={activeCatInfo?.color ?? '#e74c3c'} opacity={0.8} radius={[4, 4, 0, 0]} />
-                <Bar yAxisId='l' dataKey='avgLembab' name='Avg Kelembapan (%)'  fill='#3498db' opacity={0.8} radius={[4, 4, 0, 0]} />
+                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MAX} stroke={theme.palette.error.main} strokeDasharray='4 4' label={{ value: 'Batas Max', fontSize: 9, fill: theme.palette.error.main }} />
+                <ReferenceLine yAxisId='s' y={BATAS_SUHU_MIN} stroke={theme.palette.info.main} strokeDasharray='4 4' label={{ value: 'Batas Min', fontSize: 9, fill: theme.palette.info.main }} />
+                <Bar yAxisId='s' dataKey='avgSuhu'   name='Avg Suhu (°C)'      fill={activeCatColor || theme.palette.primary.main} opacity={0.8} radius={[4, 4, 0, 0]} />
+                <Bar yAxisId='l' dataKey='avgLembab' name='Avg Kelembapan (%)'  fill={theme.palette.info.main} opacity={0.8} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
           {/* ═══ CHART 5 — PREDIKSI LINEAR REGRESSION ════════════════════ */}
           <ChartCard
-            title={`Prediksi Suhu — Linear Regression${activeCatInfo ? ` (${activeCatInfo.icon} ${activeCatInfo.label})` : ''}`}
+            title={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <span>Prediksi Suhu — Linear Regression</span>
+                {activeCatInfo && (
+                  <Chip
+                    icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                    label={activeCatInfo.label}
+                    size='small'
+                    variant='outlined'
+                    sx={{ borderColor: activeCatColor, color: activeCatColor }}
+                  />
+                )}
+              </Box>
+            }
             subheader='Garis kanan dari ReferenceLine = area prediksi (OLS fit)'
             xs={12} md={6}
           >
@@ -783,14 +889,27 @@ const AIAnalysisPage = () => {
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 <ReferenceLine x={result.splitIdx - 0.5} stroke='#888' strokeDasharray='6 3' label={{ value: 'Sekarang', fontSize: 10, fill: '#888', position: 'insideTopLeft' }} />
-                <ReferenceArea x1={result.splitIdx - 0.5} x2={result.predLineData.length - 1} fill={activeCatInfo?.color ?? '#e74c3c'} fillOpacity={0.05} />
-                <Line type='monotone' dataKey='suhu' name='Suhu (°C)' stroke={activeCatInfo?.color ?? '#e74c3c'} dot={false} strokeWidth={2} />
+                <ReferenceArea x1={result.splitIdx - 0.5} x2={result.predLineData.length - 1} fill={activeCatColor || theme.palette.primary.main} fillOpacity={0.05} />
+                <Line type='monotone' dataKey='suhu' name='Suhu (°C)' stroke={activeCatColor || theme.palette.primary.main} dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard
-            title={`Prediksi Kelembapan — Linear Regression${activeCatInfo ? ` (${activeCatInfo.icon} ${activeCatInfo.label})` : ''}`}
+            title={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <span>Prediksi Kelembapan — Linear Regression</span>
+                {activeCatInfo && (
+                  <Chip
+                    icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                    label={activeCatInfo.label}
+                    size='small'
+                    variant='outlined'
+                    sx={{ borderColor: activeCatColor, color: activeCatColor }}
+                  />
+                )}
+              </Box>
+            }
             subheader='Garis kanan dari ReferenceLine = area prediksi (OLS fit)'
             xs={12} md={6}
           >
@@ -802,8 +921,8 @@ const AIAnalysisPage = () => {
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 <ReferenceLine x={result.splitIdx - 0.5} stroke='#888' strokeDasharray='6 3' label={{ value: 'Sekarang', fontSize: 10, fill: '#888', position: 'insideTopLeft' }} />
-                <ReferenceArea x1={result.splitIdx - 0.5} x2={result.predLineData.length - 1} fill='#3498db' fillOpacity={0.05} />
-                <Line type='monotone' dataKey='kelembapan' name='Kelembapan (%)' stroke='#3498db' dot={false} strokeWidth={2} />
+                <ReferenceArea x1={result.splitIdx - 0.5} x2={result.predLineData.length - 1} fill={theme.palette.info.main} fillOpacity={0.05} />
+                <Line type='monotone' dataKey='kelembapan' name='Kelembapan (%)' stroke={theme.palette.info.main} dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -813,7 +932,23 @@ const AIAnalysisPage = () => {
             <Card>
               <CardHeader
                 title='Statistik Deskriptif — Suhu (°C)'
-                subheader={`${result.totalData} pembacaan${activeCatInfo ? ` · ${activeCatInfo.icon} ${activeCatInfo.label}` : ' · Semua Mode'}`}
+                subheader={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <span>{result.totalData} pembacaan</span>
+                    {activeCatInfo && (
+                      <>
+                        <span>·</span>
+                        <Chip
+                          icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                          label={activeCatInfo.label}
+                          size='small'
+                          variant='text'
+                          sx={{ color: activeCatColor }}
+                        />
+                      </>
+                    )}
+                  </Box>
+                }
               />
               <CardContent sx={{ pt: 0 }}>
                 <Table size='small'><TableBody>
@@ -833,7 +968,23 @@ const AIAnalysisPage = () => {
             <Card>
               <CardHeader
                 title='Statistik Deskriptif — Kelembapan (%)'
-                subheader={`Periode: ${result.rentangAwal}${activeCatInfo ? ` · ${activeCatInfo.icon} ${activeCatInfo.label}` : ''}`}
+                subheader={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <span>Periode: {result.rentangAwal}</span>
+                    {activeCatInfo && (
+                      <>
+                        <span>·</span>
+                        <Chip
+                          icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                          label={activeCatInfo.label}
+                          size='small'
+                          variant='text'
+                          sx={{ color: activeCatColor }}
+                        />
+                      </>
+                    )}
+                  </Box>
+                }
               />
               <CardContent sx={{ pt: 0 }}>
                 <Table size='small'><TableBody>
@@ -908,7 +1059,20 @@ const AIAnalysisPage = () => {
           <Grid item xs={12}>
             <Card>
               <CardHeader
-                title={`Tabel Prediksi 10 Data Berikutnya${activeCatInfo ? ` — ${activeCatInfo.icon} ${activeCatInfo.label}` : ''}`}
+                title={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                    <span>Tabel Prediksi 10 Data Berikutnya</span>
+                    {activeCatInfo && (
+                      <Chip
+                        icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                        label={activeCatInfo.label}
+                        size='small'
+                        variant='outlined'
+                        sx={{ borderColor: activeCatColor, color: activeCatColor }}
+                      />
+                    )}
+                  </Box>
+                }
                 subheader='Metode: OLS Linear Regression'
               />
               <CardContent>
@@ -948,7 +1112,22 @@ const AIAnalysisPage = () => {
             <Card>
               <CardHeader
                 title='Insight & Rekomendasi Otomatis'
-                subheader={activeCatInfo ? `Konteks: ${activeCatInfo.icon} ${activeCatInfo.label}` : 'Konteks: Semua Mode Perangkat'}
+                subheader={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <span>Konteks:</span>
+                    {activeCatInfo ? (
+                      <Chip
+                        icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                        label={activeCatInfo.label}
+                        size='small'
+                        variant='outlined'
+                        sx={{ borderColor: activeCatColor, color: activeCatColor }}
+                      />
+                    ) : (
+                      <span>Semua Mode Perangkat</span>
+                    )}
+                  </Box>
+                }
               />
               <CardContent>
                 {/* Ringkasan Analisa */}
@@ -956,19 +1135,23 @@ const AIAnalysisPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <Typography variant='subtitle2' color='primary'>Analisa AI (Ringkasan Otomatis)</Typography>
                     {activeCatInfo && (
-                      <Chip label={`${activeCatInfo.icon} ${activeCatInfo.label}`} size='small'
-                        sx={{ bgcolor: activeCatInfo.color + '22', color: activeCatInfo.color, border: `1px solid ${activeCatInfo.color}` }} />
+                      <Chip
+                        icon={<i className={activeCatInfo.icon} style={{ fontSize: '0.8rem', color: activeCatColor }} />}
+                        label={activeCatInfo.label}
+                        size='small'
+                        sx={{ bgcolor: `${activeCatColor}22`, color: activeCatColor, border: `1px solid ${activeCatColor}` }}
+                      />
                     )}
                   </Box>
                   <Typography variant='body2'>
-                    Dari <strong>{result.totalData}</strong> data
-                    {activeCatInfo ? ` pada mode ${activeCatInfo.label}` : ''},
-                    korelasi suhu-kelembapan <strong>{fmt2(result.korelasi)}</strong> ({Math.abs(result.korelasi) > 0.5 ? 'kuat' : 'lemah'}).
-                    Suhu rata-rata <strong>{result.statSuhu.mean} °C</strong>, kelembapan rata-rata{' '}
+                    Berdasarkan analisis terhadap <strong>{result.totalData}</strong> dataset
+                    {activeCatInfo ? ` pada operasional mode ${activeCatInfo.label}` : ''},
+                    koefisien korelasi Pearson antara suhu dan kelembapan terhitung sebesar <strong>{fmt2(result.korelasi)}</strong> ({Math.abs(result.korelasi) > 0.5 ? 'korelasi kuat' : 'korelasi lemah'}).
+                    Temperatur rata-rata tercatat sebesar <strong>{result.statSuhu.mean} °C</strong> dengan tingkat kelembapan rata-rata sebesar{' '}
                     <strong>{result.statLembab.mean}%</strong>.
-                    Kondisi dominan: <strong>{result.kondisiTerbanyak}</strong> ({result.pctNormal.toFixed(1)}% normal).
-                    Anomali terdeteksi: <strong>{result.nAnomali}</strong> ({result.pctAnomali.toFixed(1)}%).
-                    Prediksi berikutnya:{' '}
+                    Status dominan ruangan berada pada kondisi <strong>{result.kondisiTerbanyak}</strong> (dengan tingkat kestabilan normal {result.pctNormal.toFixed(1)}% dari total durasi).
+                    Jumlah anomali data terdeteksi sebanyak <strong>{result.nAnomali}</strong> titik ({result.pctAnomali.toFixed(1)}%).
+                    Estimasi kecenderungan kondisi berikutnya diprediksikan berada pada status{' '}
                     <Chip label={result.kondisiPred.label} color={result.kondisiPred.color} size='small' variant='tonal' />.
                   </Typography>
                 </Box>
@@ -980,10 +1163,18 @@ const AIAnalysisPage = () => {
                       Mode Perangkat:
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {Object.entries(KATEGORI_MAP).map(([id, info]) => (
-                        <Chip key={id} label={`${info.icon} ${info.label}`} size='small'
-                          sx={{ bgcolor: info.color + '22', color: info.color, border: `1px solid ${info.color}` }} />
-                      ))}
+                      {Object.entries(KATEGORI_MAP).map(([id, info]) => {
+                        const color = theme.palette[info.colorKey]?.main || theme.palette.secondary.main
+                        return (
+                          <Chip
+                            key={id}
+                            icon={<i className={info.icon} style={{ fontSize: '0.8rem', color: color, marginLeft: '4px' }} />}
+                            label={info.label}
+                            size='small'
+                            sx={{ bgcolor: `${color}22`, color: color, border: `1px solid ${color}` }}
+                          />
+                        )
+                      })}
                     </Box>
                   </Box>
                 )}

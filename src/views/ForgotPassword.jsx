@@ -34,7 +34,7 @@ const ForgotPassword = ({ mode }) => {
           <Link href='/' className='flex justify-center items-center mbe-6'>
             <Logo />
           </Link>
-          <Typography variant='h4'>Forgot Password 🔒</Typography>
+          <Typography variant='h4'>Forgot Password</Typography>
           <div className='flex flex-col gap-5'>
             <Typography className='mbs-1'>
               Enter your email and we&#39;ll send you instructions to reset your password

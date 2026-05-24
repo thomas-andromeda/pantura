@@ -24,13 +24,13 @@ const AccountSettings = ({ tabContentList }) => {
         <Grid item xs={12}>
           <TabList onChange={handleChange} variant='scrollable'>
             <Tab label='Account' icon={<i className='ri-user-3-line' />} iconPosition='start' value='account' />
-            <Tab
+            {/* <Tab
               label='Notifications'
               icon={<i className='ri-notification-3-line' />}
               iconPosition='start'
               value='notifications'
             />
-            <Tab label='Connections' icon={<i className='ri-link' />} iconPosition='start' value='connections' />
+            <Tab label='Connections' icon={<i className='ri-link' />} iconPosition='start' value='connections' /> */}
           </TabList>
         </Grid>
         <Grid item xs={12}>
