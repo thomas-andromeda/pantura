@@ -12,7 +12,7 @@ MQTT_PASS = os.getenv("MQTT_PASS", "Admin123")
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "pantura/sensor")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://stwhpggfudlcoubgaqeg.supabase.co/rest/v1/sensor_data")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0d2hwZ2dmdWRsY291YmdhcWVnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjU2MjU0NywiZXhwIjoyMDkyMTM4NTQ3fQ.Jl-u4gpDfZ2y54Upu08k7XZc3KavskFh-rjhyZZ5VCY")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
