@@ -5,8 +5,9 @@ const navigationCustomStyles = theme => {
   return {
     color: 'var(--mui-palette-text-primary)',
     zIndex: 'var(--drawer-z-index) !important',
+    borderRight: '1px solid var(--mui-palette-divider)',
     [`& .${verticalNavClasses.bgColorContainer}`]: {
-      backgroundColor: 'var(--mui-palette-background-default)'
+      backgroundColor: 'var(--mui-palette-background-paper)'
     },
     [`& .${verticalNavClasses.header}`]: {
       paddingBlock: theme.spacing(5),

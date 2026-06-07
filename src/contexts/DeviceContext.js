@@ -103,6 +103,8 @@ export const DeviceProvider = ({ children }) => {
 
   // Update device (nama, dsb)
   const updateDevice = async (deviceId, updates) => {
+    if (!user) throw new Error('Belum login')
+
     const { data, error } = await supabase
       .from('devices')
       .update(updates)
@@ -111,7 +113,10 @@ export const DeviceProvider = ({ children }) => {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("updateDevice failed:", error)
+      throw error
+    }
 
     await fetchDevices()
     return data
@@ -119,13 +124,18 @@ export const DeviceProvider = ({ children }) => {
 
   // Hapus device
   const deleteDevice = async (deviceId) => {
+    if (!user) throw new Error('Belum login')
+
     const { error } = await supabase
       .from('devices')
       .delete()
       .eq('id', deviceId)
       .eq('user_id', user.id)
 
-    if (error) throw error
+    if (error) {
+      console.error("deleteDevice failed:", error)
+      throw error
+    }
 
     // Jika device yang dihapus adalah yang aktif, pindah ke device lain
     if (activeDevice?.id === deviceId) {
@@ -142,6 +152,11 @@ export const DeviceProvider = ({ children }) => {
 
   // Update mode/kategori aktif (1-4) untuk device tertentu
   const updateCategoryMode = async (deviceId, categoryId) => {
+    if (!user) {
+      console.error("updateCategoryMode failed: User is not authenticated")
+      throw new Error('Belum login')
+    }
+
     const { data, error } = await supabase
       .from('devices')
       .update({ active_category_id: categoryId })
@@ -150,7 +165,10 @@ export const DeviceProvider = ({ children }) => {
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("updateCategoryMode failed:", error)
+      throw error
+    }
 
     // Update state lokal tanpa re-fetch
     setDevices(prev =>

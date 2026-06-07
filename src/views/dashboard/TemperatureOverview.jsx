@@ -181,9 +181,19 @@ const TemperatureOverview = () => {
     }
   }
 
+  // ─── Color tokens (PANTURA Design System) ──────────────────────────────────
+  const isDark        = theme.palette.mode === 'dark'
+  const accent        = isDark ? '#A78BFA' : '#7C3AED'
+  const borderColor   = isDark ? 'rgba(167,139,250,0.15)' : 'rgba(124,58,237,0.12)'
+  const textSecondary = isDark ? '#9390B0' : '#6B6A85'
+
   if (!activeDevice) {
     return (
-      <Card>
+      <Card sx={{
+        borderRadius: '16px',
+        border: `0.5px solid ${borderColor}`,
+        boxShadow: 'none',
+      }}>
         <CardHeader title='Ikhtisar Suhu & Kelembapan' />
         <CardContent className='flex items-center justify-center min-bs-[200px]'>
           <Typography color='textSecondary'>Pilih perangkat terlebih dahulu</Typography>
@@ -193,9 +203,14 @@ const TemperatureOverview = () => {
   }
 
   return (
-    <Card>
+    <Card sx={{
+      borderRadius: '16px',
+      border: `0.5px solid ${borderColor}`,
+      boxShadow: 'none',
+    }}>
       <CardHeader
         title={`Ikhtisar - ${activeDevice.device_name}`}
+        titleTypographyProps={{ sx: { fontSize: '16px', fontWeight: 600, color: 'text.primary' } }}
         action={
           <OptionsMenu 
             iconClassName='text-textPrimary' 
@@ -206,23 +221,33 @@ const TemperatureOverview = () => {
       <CardContent sx={{ '& .apexcharts-canvas': { margin: '0 auto' } }}>
         <AppReactApexCharts type='line' height={320} width='100%' series={series} options={options} />
         
-        <div className='flex items-center mbs-4 gap-8'>
-          <div className='flex flex-col'>
-            <Typography variant='h4' color='primary'>
+        {/* ── Nilai Suhu & Kelembapan Saat Ini ── */}
+        <Box sx={{ display: 'flex', gap: 4, mt: 3, pt: 3, borderTop: `1px solid ${borderColor}` }}>
+          {/* Suhu */}
+          <Box>
+            <Typography sx={{
+              fontSize: '28px', fontWeight: 600, fontFamily: 'monospace',
+              color: accent, lineHeight: 1.2
+            }}>
               {series[0].data.length > 0 ? `${series[0].data[series[0].data.length - 1]}°C` : '--'}
             </Typography>
-            <Typography variant='caption'>Suhu Saat Ini</Typography>
-          </div>
+            <Typography sx={{ fontSize: '12px', color: textSecondary, mt: 0.3 }}>Suhu Saat Ini</Typography>
+          </Box>
 
-          <div className='h-10 w-px bg-divider'></div>
+          {/* Separator vertikal */}
+          <Box sx={{ width: '1px', bgcolor: borderColor, alignSelf: 'stretch' }} />
 
-          <div className='flex flex-col'>
-            <Typography variant='h4' color='info.main'>
+          {/* Kelembapan */}
+          <Box>
+            <Typography sx={{
+              fontSize: '28px', fontWeight: 600, fontFamily: 'monospace',
+              color: theme.palette.info.main, lineHeight: 1.2
+            }}>
               {series[1].data.length > 0 ? `${series[1].data[series[1].data.length - 1]}%` : '--'}
             </Typography>
-            <Typography variant='caption'>Kelembapan Saat Ini</Typography>
-          </div>
-        </div>
+            <Typography sx={{ fontSize: '12px', color: textSecondary, mt: 0.3 }}>Kelembapan Saat Ini</Typography>
+          </Box>
+        </Box>
 
       </CardContent>
     </Card>

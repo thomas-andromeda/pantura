@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react'
 import { useDevice } from '@/contexts/DeviceContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/libs/supabaseClient'
+import { useTheme } from '@mui/material/styles'
 
 // MUI Imports
 import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
@@ -21,9 +21,6 @@ import IconButton from '@mui/material/IconButton'
 import Chip from '@mui/material/Chip'
 import Box from '@mui/material/Box'
 import Alert from '@mui/material/Alert'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
-import ToggleButton from '@mui/material/ToggleButtonGroup' // Wait, Mui ToggleButton needs to be imported separately
-import Divider from '@mui/material/Divider'
 import CircularProgress from '@mui/material/CircularProgress'
 import Tooltip from '@mui/material/Tooltip'
 
@@ -54,6 +51,44 @@ const klasifikasiKondisi = (suhu, lembab) => {
   return                                                           { label: 'Tidak Normal',  color: 'default'   }
 }
 
+// ─── StatusBadge: animated pulse dot + label ─────────────────────────────────
+const StatusBadge = ({ isOnline, bgSecondary, textSecondary }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={{ position: 'relative', width: 8, height: 8 }}>
+      {/* Solid dot */}
+      <Box sx={{
+        width: 8, height: 8, borderRadius: '50%',
+        bgcolor: isOnline ? '#16A34A' : '#6B6A85',
+        position: 'absolute'
+      }} />
+      {/* Pulse ring — only when online */}
+      {isOnline && (
+        <Box sx={{
+          width: 8, height: 8, borderRadius: '50%',
+          bgcolor: '#16A34A',
+          position: 'absolute',
+          opacity: 0.4,
+          animation: 'pulse 2s infinite',
+          '@keyframes pulse': {
+            '0%':   { transform: 'scale(1)',   opacity: 0.4 },
+            '70%':  { transform: 'scale(2.2)', opacity: 0 },
+            '100%': { transform: 'scale(1)',   opacity: 0 }
+          }
+        }} />
+      )}
+    </Box>
+    <Box sx={{
+      bgcolor: isOnline ? '#DCFCE7' : bgSecondary,
+      color: isOnline ? '#16A34A' : textSecondary,
+      borderRadius: '20px', px: 1.5, py: 0.3,
+      fontSize: '12px', fontWeight: 500
+    }}>
+      {isOnline ? 'Online' : 'Offline'}
+    </Box>
+  </Box>
+)
+
+// ─── Main Page Component ──────────────────────────────────────────────────────
 const DevicesPage = () => {
   const {
     devices,
@@ -63,6 +98,15 @@ const DevicesPage = () => {
     deleteDevice,
     updateCategoryMode
   } = useDevice()
+
+  // Design system tokens
+  const theme = useTheme()
+  const isDark = theme.palette.mode === 'dark'
+  const accent = isDark ? '#A78BFA' : '#7C3AED'
+  const accentLight = isDark ? '#2D2650' : '#EDE9FF'
+  const bgSecondary = isDark ? '#1A1830' : '#F5F4FE'
+  const borderColor = isDark ? 'rgba(167,139,250,0.15)' : 'rgba(124,58,237,0.12)'
+  const textSecondary = isDark ? '#9390B0' : '#6B6A85'
 
   const [deviceStats, setDeviceStats] = useState({})
   const [deviceStatuses, setDeviceStatuses] = useState({})
@@ -79,7 +123,7 @@ const DevicesPage = () => {
   const [newName, setNewName] = useState('')
   const [selectedDevice, setSelectedDevice] = useState(null)
   const [editName, setEditName] = useState('')
-  
+
   // Status/Error states
   const [errorMsg, setErrorMsg] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
@@ -100,7 +144,7 @@ const DevicesPage = () => {
           .from('sensor_data')
           .select('*', { count: 'exact', head: true })
           .eq('device_token', d.device_token)
-        
+
         stats[d.device_token] = countErr ? 0 : count || 0
 
         // Get latest reading
@@ -119,7 +163,7 @@ const DevicesPage = () => {
           // Get today's last 50 logs
           const todayStart = new Date()
           todayStart.setHours(0, 0, 0, 0)
-          
+
           const { data: todayLogs, error: avgErr } = await supabase
             .from('sensor_data')
             .select('suhu, kelembapan')
@@ -127,7 +171,7 @@ const DevicesPage = () => {
             .gte('created_at', todayStart.toISOString())
             .order('created_at', { ascending: false })
             .limit(50)
-            
+
           let avgSuhu = null
           let avgLembab = null
           if (!avgErr && todayLogs && todayLogs.length > 0) {
@@ -263,192 +307,218 @@ const DevicesPage = () => {
 
   return (
     <Box className='p-6'>
-      {/* Header */}
-      <Box className='flex flex-wrap justify-between items-center gap-4 mbe-6'>
+      {/* ─── Header ─────────────────────────────────────────── */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 4 }}>
         <Box>
-          <Typography variant='h4' className='font-semibold'>Perangkat Saya</Typography>
-          <Typography variant='body2' color='textSecondary'>
+          <Typography variant='h4' sx={{ fontWeight: 600, fontSize: '22px' }}>Perangkat Saya</Typography>
+          <Typography variant='body2' sx={{ color: textSecondary, mt: 0.5 }}>
             Kelola perangkat IoT ESP32 Anda ({devices.length} terdaftar)
           </Typography>
         </Box>
+        {/* ─── Tombol Tambah Perangkat ─── */}
         <Button
           variant='contained'
-          color='primary'
           startIcon={<i className='ri-add-line' />}
           onClick={handleOpenAdd}
+          sx={{
+            bgcolor: accent,
+            color: '#fff',
+            borderRadius: '10px',
+            textTransform: 'none',
+            fontSize: '14px',
+            px: 3, py: 1.2,
+            boxShadow: `0 4px 12px ${accent}40`,
+            '&:hover': { bgcolor: accent, filter: 'brightness(0.9)', boxShadow: `0 6px 16px ${accent}50` },
+            '&:active': { transform: 'scale(0.98)' }
+          }}
         >
           Tambah Perangkat
         </Button>
       </Box>
 
+      {/* ─── Empty State ─────────────────────────────────────── */}
       {devices.length === 0 ? (
-        <Card className='flex flex-col items-center justify-center p-12 text-center shadow-md'>
-          <Box className='flex items-center justify-center bg-primary-light rounded-full p-4 mbe-4' style={{ backgroundColor: 'rgba(102, 108, 255, 0.08)' }}>
-            <i className='ri-router-line text-primary' style={{ fontSize: '3rem' }} />
+        <Card sx={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          p: 8, textAlign: 'center',
+          borderRadius: '16px', border: `0.5px solid ${borderColor}`, boxShadow: 'none'
+        }}>
+          <Box sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            bgcolor: accentLight, borderRadius: '50%', width: 72, height: 72, mb: 3
+          }}>
+            <i className='ri-router-line' style={{ fontSize: '2rem', color: accent }} />
           </Box>
-          <Typography variant='h6' className='mbe-2 font-medium'>Belum ada perangkat terdaftar</Typography>
-          <Typography variant='body2' color='textSecondary' className='mbe-6 max-w-sm'>
+          <Typography variant='h6' sx={{ mb: 1, fontWeight: 500 }}>Belum ada perangkat terdaftar</Typography>
+          <Typography variant='body2' sx={{ color: textSecondary, mb: 4, maxWidth: 400 }}>
             Hubungkan perangkat ESP32 Anda ke sistem dengan memasukkan Token Perangkat yang sesuai di dashboard ini.
           </Typography>
-          <Button variant='contained' onClick={handleOpenAdd}>
+          <Button
+            variant='contained'
+            onClick={handleOpenAdd}
+            sx={{
+              bgcolor: accent, color: '#fff', borderRadius: '10px',
+              textTransform: 'none', px: 3, py: 1.2,
+              boxShadow: `0 4px 12px ${accent}40`,
+              '&:hover': { bgcolor: accent, filter: 'brightness(0.9)' }
+            }}
+          >
             Tambah Perangkat Pertama
           </Button>
         </Card>
       ) : (
-        <Grid container spacing={6}>
+        /* ─── Device Grid ─────────────────────────────────────── */
+        <Grid container spacing={3}>
           {devices.map((device) => {
             const count = deviceStats[device.device_token] ?? 0
             const isOnline = deviceStatuses[device.device_token] ?? false
-            const readings = deviceReadings[device.device_token]
-            const formattedDate = new Date(device.created_at).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric'
-            })
+            const reading = deviceReadings[device.device_token]
 
             return (
               <Grid item xs={12} md={6} lg={4} key={device.id}>
-                <Card className='h-full flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow duration-300'>
-                  <Box>
-                    {/* Card Header custom */}
-                    <Box className='flex justify-between items-start p-6 pb-2'>
-                      <Box sx={{ overflow: 'hidden', mr: 2 }}>
-                        <Typography variant='h6' className='font-medium' noWrap>
-                          {device.device_name}
-                        </Typography>
-                        <Box className='flex items-center gap-1 mt-1'>
-                          <Typography variant='caption' className='bg-light rounded px-1.5 py-0.5 border text-secondary font-mono'>
-                            {device.device_token}
-                          </Typography>
-                          <Tooltip title='Salin Token'>
-                            <IconButton size='small' onClick={() => handleCopyToClipboard(device.device_token)}>
-                              <i className='ri-file-copy-line text-sm' />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </Box>
-                      <Chip
-                        label={isOnline ? 'Online' : 'Offline'}
-                        color={isOnline ? 'success' : 'default'}
-                        size='small'
-                        className='font-semibold'
-                      />
+                {/* ─── Device Card ─────────────────────────────── */}
+                <Card sx={{
+                  borderRadius: '16px',
+                  border: `0.5px solid ${borderColor}`,
+                  boxShadow: 'none',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'box-shadow 150ms ease',
+                  '&:hover': {
+                    boxShadow: `0 4px 20px rgba(124, 58, 237, 0.08)`,
+                    '& .device-actions': { opacity: 1 }
+                  }
+                }}>
+                  {/* ─── Floating Edit & Delete icons (appear on hover) ── */}
+                  <Box className='device-actions' sx={{
+                    position: 'absolute', top: 12, right: 12,
+                    display: 'flex', gap: 0.5,
+                    opacity: 0,
+                    transition: 'opacity 150ms ease',
+                    zIndex: 1
+                  }}>
+                    <IconButton size='small' onClick={() => handleOpenEdit(device)} sx={{ color: textSecondary, '&:hover': { color: accent, bgcolor: accentLight } }}>
+                      <i className='ri-edit-line' style={{ fontSize: '1rem' }} />
+                    </IconButton>
+                    <IconButton size='small' onClick={() => handleOpenDelete(device)} sx={{ color: textSecondary, '&:hover': { color: '#DC2626', bgcolor: '#FEE2E2' } }}>
+                      <i className='ri-delete-bin-line' style={{ fontSize: '1rem' }} />
+                    </IconButton>
+                  </Box>
+
+                  {/* ─── Card Content ──────────────────────────────── */}
+                  <CardContent sx={{ pb: 0, flexGrow: 1 }}>
+                    {/* Device name */}
+                    <Typography sx={{ fontSize: '16px', fontWeight: 600, color: 'text.primary', mb: 0.5, pr: 7 }}>
+                      {device.device_name}
+                    </Typography>
+
+                    {/* Token + copy button */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                      <Typography sx={{ fontSize: '12px', color: textSecondary, fontFamily: 'monospace' }}>
+                        {device.device_token}
+                      </Typography>
+                      <IconButton size='small' onClick={() => handleCopyToClipboard(device.device_token)} sx={{ color: textSecondary, p: 0.3, '&:hover': { color: accent } }}>
+                        <i className='ri-file-copy-line' style={{ fontSize: '0.8rem' }} />
+                      </IconButton>
                     </Box>
 
-                    <CardContent className='pt-2'>
-                      {/* Device statistics info */}
-                      <Grid container spacing={2} className='mbe-4 bg-light rounded p-2.5 border' style={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
-                        <Grid item xs={6}>
-                          <Typography variant='caption' color='textSecondary' display='block'>Data Tercatat</Typography>
-                          <Typography variant='body2' className='font-semibold'>{count} baris</Typography>
-                        </Grid>
-                        <Grid item xs={6}>
-                          <Typography variant='caption' color='textSecondary' display='block'>Terdaftar Pada</Typography>
-                          <Typography variant='body2' className='font-semibold'>{formattedDate}</Typography>
-                        </Grid>
-                      </Grid>
-
-                      {/* Tampilan Ringkasan Data Sensor */}
-                      {readings ? (
-                        <Box className='mbe-4 p-3 rounded border' sx={{ borderStyle: 'dashed', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                          <Box className='flex justify-between items-center mbe-2'>
-                            <Typography variant='caption' fontWeight={600} color='text.primary'>
-                              Data Terkini & Rata-rata
-                            </Typography>
-                            <Chip
-                              label={readings.comfortLabel}
-                              color={readings.comfortColor}
-                              size='small'
-                              variant='tonal'
-                              sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600 }}
-                            />
-                          </Box>
-                          <Grid container spacing={2}>
-                            <Grid item xs={6} className='border-r pr-2' sx={{ borderColor: 'divider' }}>
-                              <Typography variant='caption' color='textSecondary' display='block' sx={{ fontSize: '0.7rem' }}>
-                                Saat Ini
-                              </Typography>
-                              <Typography variant='body2' className='font-semibold' sx={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
-                                <i className='ri-temp-hot-line' style={{ fontSize: '0.85rem' }} /> {readings.suhu}°C
-                                <span className='text-secondary'>|</span>
-                                <i className='ri-drop-line' style={{ fontSize: '0.85rem' }} /> {readings.kelembapan}%
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6} className='pl-2'>
-                              <Typography variant='caption' color='textSecondary' display='block' sx={{ fontSize: '0.7rem' }}>
-                                Rata-rata Hari Ini (50 Log)
-                              </Typography>
-                              <Typography variant='body2' className='font-semibold' sx={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
-                                {readings.avgSuhu != null && readings.avgLembab != null ? (
-                                  <>
-                                    <i className='ri-temp-hot-line' style={{ fontSize: '0.85rem' }} /> {readings.avgSuhu}°C
-                                    <span className='text-secondary'>|</span>
-                                    <i className='ri-drop-line' style={{ fontSize: '0.85rem' }} /> {readings.avgLembab}%
-                                  </>
-                                ) : (
-                                  <span style={{ fontSize: '0.7rem' }}>Belum ada log hari ini</span>
-                                )}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      ) : (
-                        <Box className='mbe-4 p-3 rounded border text-center' sx={{ borderStyle: 'dashed', borderColor: 'divider', bgcolor: 'action.hover' }}>
-                          <Typography variant='caption' color='textSecondary'>
-                            Belum ada log sensor yang terekam
-                          </Typography>
-                        </Box>
-                      )}
-
-                      <Divider className='mlb-4' />
-
-                      {/* Mode Control */}
-                      <Typography variant='subtitle2' className='mbe-2 font-medium' color='textPrimary'>
-                        Mode Perangkat Aktif:
+                    {/* Status badge + Created date */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                      <StatusBadge isOnline={isOnline} bgSecondary={bgSecondary} textSecondary={textSecondary} />
+                      <Typography sx={{ fontSize: '12px', color: textSecondary }}>
+                        {device.created_at ? new Date(device.created_at).toLocaleDateString('id-ID') : '-'}
                       </Typography>
-                      <Grid container spacing={1}>
+                    </Box>
+
+                    {/* Data count row */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, p: 1.5, bgcolor: bgSecondary, borderRadius: '8px', border: `0.5px solid ${borderColor}` }}>
+                      <i className='ri-database-2-line' style={{ fontSize: '1rem', color: accent }} />
+                      <Typography sx={{ fontSize: '13px', color: 'text.primary' }}>
+                        <strong>{count.toLocaleString()}</strong>
+                        <span style={{ color: textSecondary }}> total data</span>
+                      </Typography>
+                      {reading && (
+                        <Chip label={reading.comfortLabel} size='small' color={reading.comfortColor} sx={{ ml: 'auto', height: 22, fontSize: '11px' }} />
+                      )}
+                    </Box>
+
+                    {/* Sensor readings 2-col grid */}
+                    {reading && (
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 2 }}>
+                        <Box sx={{ p: 1.5, bgcolor: bgSecondary, borderRadius: '8px', border: `0.5px solid ${borderColor}`, textAlign: 'center' }}>
+                          <i className='ri-temp-hot-line' style={{ color: accent, fontSize: '1rem' }} />
+                          <Typography sx={{ fontSize: '18px', fontWeight: 600, fontFamily: 'monospace', color: accent }}>{reading.suhu}°C</Typography>
+                          <Typography sx={{ fontSize: '11px', color: textSecondary }}>Suhu Saat Ini</Typography>
+                        </Box>
+                        <Box sx={{ p: 1.5, bgcolor: bgSecondary, borderRadius: '8px', border: `0.5px solid ${borderColor}`, textAlign: 'center' }}>
+                          <i className='ri-drop-line' style={{ color: theme.palette.info.main, fontSize: '1rem' }} />
+                          <Typography sx={{ fontSize: '18px', fontWeight: 600, fontFamily: 'monospace', color: theme.palette.info.main }}>{reading.kelembapan}%</Typography>
+                          <Typography sx={{ fontSize: '11px', color: textSecondary }}>Kelembapan</Typography>
+                        </Box>
+                      </Box>
+                    )}
+
+                    {/* ─── Mode Aktif 2x2 grid ──────────────────────── */}
+                    <Box sx={{ mt: reading ? 0.5 : 2.5 }}>
+                      <Typography sx={{ fontSize: '12px', color: textSecondary, fontWeight: 500, mb: 1.5 }}>Mode Aktif</Typography>
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
                         {categoryOptions.map((opt) => {
                           const isSelected = device.active_category_id === opt.id
+                          const modeIcon =
+                            opt.id === 1 ? 'ri-power-off-line' :
+                            opt.id === 2 ? 'ri-computer-line' :
+                            opt.id === 3 ? 'ri-cpu-line' :
+                                           'ri-temp-cold-line'
                           return (
-                            <Grid item xs={6} key={opt.id}>
-                              <Box
-                                onClick={() => handleModeChange(device, opt.id)}
-                                className='flex items-center gap-2 p-2.5 rounded border cursor-pointer select-none transition-all'
-                                sx={{
-                                  borderColor: isSelected ? opt.color : 'divider',
-                                  backgroundColor: isSelected ? opt.bgColor : 'background.paper',
+                            <MuiToggleButton
+                              key={opt.id}
+                              value={opt.id}
+                              selected={isSelected}
+                              onChange={() => handleModeChange(device, opt.id)}
+                              sx={{
+                                borderRadius: '10px !important',
+                                border: `1px solid ${borderColor} !important`,
+                                fontSize: '12px',
+                                textTransform: 'none',
+                                py: 0.8, px: 1.5,
+                                justifyContent: 'flex-start',
+                                gap: 0.8,
+                                transition: 'all 150ms ease',
+                                color: `${textSecondary} !important`,
+                                bgcolor: 'transparent !important',
+                                '&.Mui-selected': {
+                                  bgcolor: `${accentLight} !important`,
+                                  color: `${accent} !important`,
+                                  border: `1px solid ${accent} !important`,
+                                  boxShadow: `0 0 8px ${accent}25`,
+                                  fontWeight: 600,
                                   '&:hover': {
-                                    backgroundColor: isSelected ? opt.bgColor : 'action.hover'
+                                    bgcolor: `${accentLight} !important`,
+                                    filter: 'brightness(0.95)'
                                   }
-                                }}
-                              >
-                                <Box className='overflow-hidden' sx={{ w: '100%' }}>
-                                  <Typography variant='caption' className='font-semibold text-textPrimary' display='block' noWrap>
-                                    {opt.label}
-                                  </Typography>
-                                  {isSelected && (
-                                    <Typography variant='caption' sx={{ color: opt.color, fontWeight: 700 }}>
-                                      Aktif
-                                    </Typography>
-                                  )}
-                                </Box>
-                              </Box>
-                            </Grid>
+                                },
+                                '&:hover': {
+                                  bgcolor: `${accentLight}20 !important`,
+                                  color: `${accent} !important`,
+                                  borderColor: `${accent}40 !important`
+                                },
+                                '&:active': { transform: 'scale(0.98)' }
+                              }}
+                            >
+                              <i className={modeIcon} style={{ fontSize: '0.85rem' }} />
+                              <span style={{ fontSize: '12px' }}>{opt.label}</span>
+                            </MuiToggleButton>
                           )
                         })}
-                      </Grid>
-                    </CardContent>
-                  </Box>
+                      </Box>
+                    </Box>
+                  </CardContent>
 
-                  {/* Actions */}
-                  <Box className='flex justify-between items-center p-6 pt-2 border-t mt-4'>
-                    <IconButton color='primary' onClick={() => handleOpenEdit(device)}>
-                      <i className='ri-pencil-line' />
-                    </IconButton>
-                    <IconButton color='error' onClick={() => handleOpenDelete(device)}>
-                      <i className='ri-delete-bin-line' />
-                    </IconButton>
-                  </Box>
+                  {/* Bottom spacer */}
+                  <Box sx={{ pb: 2 }} />
                 </Card>
               </Grid>
             )
@@ -456,7 +526,7 @@ const DevicesPage = () => {
         </Grid>
       )}
 
-      {/* Add Device Dialog */}
+      {/* ─── Add Device Dialog ────────────────────────────────── */}
       <Dialog open={openAddDialog} onClose={() => !actionLoading && setOpenAddDialog(false)} fullWidth maxWidth='xs'>
         <form onSubmit={handleAddSubmit}>
           <DialogTitle>Tambah Perangkat Baru</DialogTitle>
@@ -492,7 +562,7 @@ const DevicesPage = () => {
         </form>
       </Dialog>
 
-      {/* Edit Device Dialog */}
+      {/* ─── Edit Device Dialog ───────────────────────────────── */}
       <Dialog open={openEditDialog} onClose={() => !actionLoading && setOpenEditDialog(false)} fullWidth maxWidth='xs'>
         <form onSubmit={handleEditSubmit}>
           <DialogTitle>Edit Nama Perangkat</DialogTitle>
@@ -517,7 +587,7 @@ const DevicesPage = () => {
         </form>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* ─── Delete Confirmation Dialog ───────────────────────── */}
       <Dialog open={openDeleteDialog} onClose={() => !actionLoading && setOpenDeleteDialog(false)}>
         <DialogTitle>Hapus Perangkat?</DialogTitle>
         <DialogContent>

@@ -17,7 +17,7 @@ import { useTheme } from '@mui/material/styles'
 import { supabase } from '@/libs/supabaseClient'
 import { useDevice } from '@/contexts/DeviceContext'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts'
 
@@ -52,19 +52,25 @@ const getGpsLocation = () =>
       : reject(new Error('Geolocation tidak didukung'))
   )
 
-// ─── CUSTOM TOOLTIP ───────────────────────────────────────────────────────────
+// ─── CUSTOM TOOLTIP (PANTURA Design) ─────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
+  // NOTE: isDark tidak bisa diakses di sini karena komponen ini di luar scope IoTTempMonitor
+  // Gunakan warna solid yang kontras di kedua mode
   if (!active || !payload?.length) return null
   return (
     <Box sx={{
-      bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-      borderRadius: 1, p: 1.5, fontSize: '0.75rem', boxShadow: 3, minWidth: 180
+      bgcolor: '#1A1928',
+      borderRadius: '8px',
+      p: '8px 12px',
+      fontSize: '12px',
+      color: '#F0EFF8',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
     }}>
-      <Typography variant='caption' display='block' color='text.secondary' mb={0.5}>{label}</Typography>
+      <Typography variant='caption' sx={{ display: 'block', color: '#9390B0', mb: 0.5 }}>{label}</Typography>
       {payload.map((p, i) => (
         <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.2 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: p.color, flexShrink: 0 }} />
-          <span>{p.name}: <strong>{p.value != null ? `${p.value}°C` : '—'}</strong></span>
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: p.color }} />
+          <span style={{ color: '#F0EFF8' }}>{p.name}: <strong>{p.value != null ? `${p.value}°C` : '—'}</strong></span>
         </Box>
       ))}
     </Box>
@@ -276,13 +282,28 @@ const IoTTempMonitor = () => {
     }
   }
 
+  // ─── Color tokens (PANTURA Design System) ────────────────────────────────
+  const isDark       = theme.palette.mode === 'dark'
+  const accent       = isDark ? '#A78BFA' : '#7C3AED'
+  const accentLight  = isDark ? '#2D2650' : '#EDE9FF'
+  const bgSecondary  = isDark ? '#1A1830' : '#F5F4FE'
+  const borderColor  = isDark ? 'rgba(167,139,250,0.15)' : 'rgba(124,58,237,0.12)'
+  const textSecondary = isDark ? '#9390B0' : '#6B6A85'
+
   if (!activeDevice) {
     return (
-      <Card className='bs-full flex items-center justify-center p-12 text-center'>
+      <Card sx={{
+        borderRadius: '16px',
+        border: `0.5px solid ${borderColor}`,
+        boxShadow: 'none',
+        bgcolor: 'background.paper',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        p: 6, textAlign: 'center'
+      }}>
         <Box>
-          <i className='ri-router-line text-secondary' style={{ fontSize: '3rem' }} />
-          <Typography variant='h6' className='mts-2'>Pilih perangkat untuk melihat data</Typography>
-          <Typography variant='body2' color='textSecondary'>
+          <i className='ri-router-line' style={{ fontSize: '3rem', color: textSecondary }} />
+          <Typography variant='h6' sx={{ mt: 2, color: 'text.primary' }}>Pilih perangkat untuk melihat data</Typography>
+          <Typography variant='body2' sx={{ color: textSecondary, mt: 0.5 }}>
             Silakan pilih perangkat Anda di navbar atas atau tambahkan baru di menu "Perangkat Saya".
           </Typography>
         </Box>
@@ -295,25 +316,21 @@ const IoTTempMonitor = () => {
     {
       stats: avgTemp != null ? `${avgTemp}°C` : '...',
       title: 'Rata-rata Suhu',
-      color: 'primary',
       icon:  'ri-temp-hot-line',
     },
     {
       stats: avgHum != null ? `${avgHum}%` : '...',
       title: 'Rata-rata Kelembapan',
-      color: 'info',
       icon:  'ri-drop-line',
     },
     {
       stats: totalCount != null ? totalCount.toLocaleString() : '...',
       title: 'Total Data',
-      color: 'warning',
       icon:  'ri-database-2-line',
     },
     {
       stats: devStatus,
       title: 'Status',
-      color: devStatus === 'Online' ? 'success' : devStatus === 'Offline' ? 'error' : 'default',
       icon:  'ri-router-line',
     },
     {
@@ -323,16 +340,22 @@ const IoTTempMonitor = () => {
         : gpsStatus === 'loading' ? '...'
         : '—',
       title: locationName ? `Suhu Luar (${locationName})` : 'Suhu Luar',
-      color: 'secondary',
       icon:  'ri-sun-line',
     },
   ]
 
   // ─── Render ───────────────────────────────────────────────────────────────
+  // Main Card dengan border halus dan borderRadius 16px
   return (
-    <Card className='bs-full'>
+    <Card sx={{
+      borderRadius: '16px',
+      border: `0.5px solid ${borderColor}`,
+      boxShadow: 'none',
+      bgcolor: 'background.paper'
+    }}>
       <CardHeader
         title={`IoT Monitor — ${activeDevice.device_name}`}
+        titleTypographyProps={{ sx: { fontSize: '16px', fontWeight: 600, color: 'text.primary' } }}
         action={
           <OptionMenu
             iconClassName='text-textPrimary'
@@ -344,100 +367,146 @@ const IoTTempMonitor = () => {
           />
         }
         subheader={
-          <Box className='mbs-1' sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <span className='font-medium text-textPrimary'>Smart Monitoring System</span>
-            <span className='text-textSecondary'>— {activeDevice.device_token}</span>
+          <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 500, color: 'inherit' }}>Smart Monitoring System</span>
+            <span style={{ color: textSecondary }}>— {activeDevice.device_token}</span>
             {gpsStatus === 'loading' && <CircularProgress size={10} />}
             {gpsStatus === 'ok' && locationName && (
-              <Chip
-                icon={<i className='ri-map-pin-line' style={{ fontSize: '0.75rem', marginLeft: '4px' }} />}
-                label={locationName}
-                size='small'
-                sx={{ height: 18, fontSize: '0.65rem' }}
-              />
+              <Box sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 500,
+                bgcolor: accentLight,
+                color: accent,
+                border: `1px solid ${borderColor}`,
+                borderRadius: '10px',
+                pl: '6px',
+                pr: '8px',
+                lineHeight: 1
+              }}>
+                <i className='ri-map-pin-line' style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center' }} />
+                <span>{locationName}</span>
+              </Box>
             )}
             {gpsStatus === 'error' && (
-              <Chip label='GPS tidak tersedia' size='small' color='error' sx={{ height: 18, fontSize: '0.65rem' }} />
+              <Chip label='GPS tidak tersedia' size='small' color='error' sx={{ height: 20, fontSize: '0.65rem' }} />
             )}
           </Box>
         }
       />
 
-      <CardContent className='!pbs-5'>
+      <CardContent sx={{ pt: '4px !important' }}>
         {/* ── 5 STAT CARDS SEJAJAR ─────────────────────────────────────── */}
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {cards.map((item, i) => (
             <Grid item xs={12} sm={6} md={2.4} key={i}>
-              <div className='flex items-center gap-3'>
-                <CustomAvatar variant='rounded' color={item.color} skin='light' className='shrink-0 shadow-xs'>
-                  <i className={item.icon} />
-                </CustomAvatar>
-                <div className='flex flex-col min-w-0'>
-                  <Typography variant='caption' className='text-textSecondary' noWrap>
-                    {item.title}
-                  </Typography>
-                  <Typography variant='h6' className='font-semibold' noWrap>
+              {/* Card individual dengan hover effect */}
+              <Box sx={{
+                background: theme.palette.background.paper,
+                border: `0.5px solid ${borderColor}`,
+                borderRadius: '12px',
+                p: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                transition: 'box-shadow 150ms ease',
+                '&:hover': { boxShadow: `0 4px 20px rgba(124, 58, 237, 0.08)` }
+              }}>
+                {/* Icon circle */}
+                <Box sx={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  bgcolor: accentLight,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}>
+                  <i className={item.icon} style={{ fontSize: '1rem', color: accent }} />
+                </Box>
+                {/* Value + Label */}
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{
+                    fontSize: '22px', fontWeight: 600, fontFamily: 'monospace',
+                    lineHeight: 1.2, color: 'text.primary',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}>
                     {item.stats}
                   </Typography>
-                </div>
-              </div>
+                  <Typography sx={{ fontSize: '11px', color: textSecondary, mt: 0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.title}
+                  </Typography>
+                </Box>
+              </Box>
             </Grid>
           ))}
         </Grid>
 
         {/* ── MODE RUANGAN AKTIF CONTROL ────────────────────────────────── */}
-        <Box sx={{ mt: 6, p: 4, borderRadius: 1, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
-          <Typography variant='subtitle1' fontWeight={600} sx={{ mb: 2 }}>
-            Mode Ruangan Aktif (Kontrol IoT)
+        <Box sx={{
+          mt: 3, p: '20px 24px',
+          borderRadius: '12px',
+          border: `0.5px solid ${borderColor}`,
+          bgcolor: bgSecondary
+        }}>
+          <Typography sx={{ fontSize: '15px', fontWeight: 500, mb: 2, color: 'text.primary' }}>
+            Mode Ruangan Aktif
           </Typography>
+          {/* Grid 2x2 untuk ToggleButton */}
           <ToggleButtonGroup
             value={activeDevice.active_category_id || 1}
             exclusive
             onChange={handleModeChange}
             aria-label='active room mode'
-            fullWidth
             sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 2,
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 1.5,
+              width: '100%',
               '& .MuiToggleButtonGroup-grouped': {
-                border: '1px solid !important',
-                borderColor: 'divider !important',
-                borderRadius: '8px !important',
-                textTransform: 'none',
-                flex: 1,
-                minWidth: '140px',
-                py: 2
+                margin: '0 !important',
+                border: 'none !important',
               }
             }}
           >
             {categoryModes.map((opt) => {
               const isSelected = (activeDevice.active_category_id || 1) === opt.id
-              const themeColor = theme.palette[opt.colorKey]?.main || theme.palette.secondary.main
               return (
                 <ToggleButton
                   key={opt.id}
                   value={opt.id}
                   sx={{
-                    color: 'text.secondary',
-                    backgroundColor: 'background.paper',
+                    borderRadius: '10px !important',
+                    border: `1px solid ${borderColor} !important`,
+                    fontSize: '14px',
+                    textTransform: 'none',
+                    py: 1.5,
+                    px: 2,
+                    justifyContent: 'flex-start',
+                    gap: 1,
+                    transition: 'all 150ms ease',
+                    color: `${textSecondary} !important`,
+                    bgcolor: 'background.paper !important',
                     '&.Mui-selected': {
-                      color: 'white',
-                      backgroundColor: themeColor,
-                      borderColor: themeColor,
+                      bgcolor: `${accentLight} !important`,
+                      color: `${accent} !important`,
+                      border: `1px solid ${accent} !important`,
+                      boxShadow: `0 0 12px ${accent}25`,
+                      fontWeight: 600,
                       '&:hover': {
-                        backgroundColor: themeColor,
-                        filter: 'brightness(0.9)'
+                        bgcolor: `${accentLight} !important`,
+                        filter: 'brightness(0.95)'
                       }
-                    }
+                    },
+                    '&:hover': {
+                      bgcolor: `${accentLight}20 !important`,
+                      color: `${accent} !important`,
+                      borderColor: `${accent}40 !important`
+                    },
+                    '&:active': { transform: 'scale(0.98)' }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <i className={opt.icon} style={{ fontSize: '1.1rem' }} />
-                    <Typography variant='body2' color='inherit' fontWeight={isSelected ? 600 : 400}>
-                      {opt.label}
-                    </Typography>
-                  </Box>
+                  <i className={opt.icon} style={{ fontSize: '1.1rem' }} />
+                  {opt.label}
                 </ToggleButton>
               )
             })}
@@ -445,12 +514,12 @@ const IoTTempMonitor = () => {
         </Box>
 
         {/* ── CHART ────────────────────────────────────────────────────── */}
-        <Box sx={{ mt: 6 }}>
+        <Box sx={{ mt: 3 }}>
           <Box sx={{ mb: 1.5 }}>
-            <Typography variant='subtitle1' fontWeight={600}>
+            <Typography sx={{ fontSize: '15px', fontWeight: 500, color: 'text.primary' }}>
               Tren Suhu Dalam vs Luar Ruangan
             </Typography>
-            <Typography variant='caption' color='text.secondary'>
+            <Typography sx={{ fontSize: '11px', color: textSecondary, mt: 0.3 }}>
               {chartData.length > 0
                 ? `Menampilkan ${chartData.length} titik dari ${DATA_LIMIT} data terakhir`
                 : 'Memuat data...'}
@@ -461,65 +530,88 @@ const IoTTempMonitor = () => {
 
           {chartLoading && chartData.length === 0 ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 220 }}>
-              <CircularProgress size={28} />
+              <CircularProgress size={28} sx={{ color: accent }} />
             </Box>
           ) : (
-            <ResponsiveContainer width='100%' height={240}>
-              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray='3 3' opacity={0.25} />
+            <ResponsiveContainer width='100%' height={260}>
+              <AreaChart data={chartData} margin={{ top: 15, right: 20, left: 10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id='colorSuhuDalam' x1='0' y1='0' x2='0' y2='1'>
+                    <stop offset='5%' stopColor={accent} stopOpacity={0.15}/>
+                    <stop offset='95%' stopColor={accent} stopOpacity={0.0}/>
+                  </linearGradient>
+                  {outdoorTemp != null && (
+                    <linearGradient id='colorSuhuLuar' x1='0' y1='0' x2='0' y2='1'>
+                      <stop offset='5%' stopColor='#D97706' stopOpacity={0.08}/>
+                      <stop offset='95%' stopColor='#D97706' stopOpacity={0.0}/>
+                    </linearGradient>
+                  )}
+                </defs>
+                {/* Grid halus dengan warna border yang kontras */}
+                <CartesianGrid strokeDasharray='3 3' stroke={borderColor} opacity={0.3} />
                 <XAxis
                   dataKey='waktu'
-                  tick={{ fontSize: 10 }}
+                  tick={{ fontSize: 10, fill: textSecondary }}
                   interval='preserveStartEnd'
+                  axisLine={{ stroke: borderColor }}
+                  tickLine={false}
                 />
                 <YAxis
-                  domain={['auto', 'auto']}
-                  tick={{ fontSize: 10 }}
-                  label={{ value: '°C', angle: -90, position: 'insideLeft', fontSize: 10 }}
+                  domain={[
+                    dataMin => Math.min(24, Math.floor(dataMin - 0.5)),
+                    dataMax => Math.max(32, Math.ceil(dataMax + 0.5))
+                  ]}
+                  tick={{ fontSize: 10, fill: textSecondary }}
+                  label={{ value: 'Suhu (°C)', angle: -90, position: 'insideLeft', fontSize: 10, fill: textSecondary, offset: -5 }}
+                  axisLine={{ stroke: borderColor }}
+                  tickLine={false}
                 />
                 <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                 <ReferenceLine y={30} stroke={theme.palette.error.main} strokeDasharray='4 4'
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {/* Reference line max - warna error */}
+                <ReferenceLine y={30} stroke={theme.palette.error.main} strokeDasharray='4 4'
                   label={{ value: 'Max 30°C', fontSize: 9, fill: theme.palette.error.main, position: 'insideTopRight' }} />
+                {/* Reference line min - warna info */}
                 <ReferenceLine y={26} stroke={theme.palette.info.main} strokeDasharray='4 4'
                   label={{ value: 'Min 26°C', fontSize: 9, fill: theme.palette.info.main, position: 'insideBottomRight' }} />
 
-                <Line
+                {/* Suhu Dalam — accent purple area */}
+                <Area
                   type='monotone'
                   dataKey='suhuDalam'
                   name='Suhu Dalam (°C)'
-                  stroke={theme.palette.primary.main}
-                  dot={false}
+                  stroke={accent}
                   strokeWidth={2}
-                  activeDot={{ r: 4 }}
+                  fill='url(#colorSuhuDalam)'
+                  activeDot={{ r: 5, fill: accent, strokeWidth: 0 }}
                 />
 
-                {/* Hanya render jika outdoorTemp sudah ada */}
+                {/* Suhu Luar — amber area, hanya render jika outdoorTemp ada */}
                 {outdoorTemp != null && (
-                  <Line
+                  <Area
                     type='monotone'
                     dataKey='suhuLuar'
                     name={`Suhu Luar${locationName ? ` (${locationName})` : ''} (°C)`}
-                    stroke={theme.palette.warning.main}
-                    dot={false}
+                    stroke='#D97706'
                     strokeWidth={2}
-                    strokeDasharray='6 3'
-                    activeDot={{ r: 4 }}
+                    strokeDasharray='5 3'
+                    fill='url(#colorSuhuLuar)'
+                    activeDot={{ r: 5, fill: '#D97706', strokeWidth: 0 }}
                   />
                 )}
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           )}
 
-          {/* Keterangan warna */}
-          <Box sx={{ display: 'flex', gap: 3, mt: 1, flexWrap: 'wrap' }}>
+          {/* Keterangan warna legend manual */}
+          <Box sx={{ display: 'flex', gap: 3, mt: 1.5, flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Box sx={{ width: 20, height: 2, bgcolor: theme.palette.primary.main, borderRadius: 1 }} />
-              <Typography variant='caption' color='text.secondary'>Suhu dalam ruangan</Typography>
+              <Box sx={{ width: 20, height: 2, bgcolor: accent, borderRadius: 1 }} />
+              <Typography sx={{ fontSize: '11px', color: textSecondary }}>Suhu dalam ruangan</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-              <Box sx={{ width: 20, height: 2, bgcolor: theme.palette.warning.main, borderRadius: 1, opacity: outdoorTemp != null ? 1 : 0.35 }} />
-              <Typography variant='caption' color='text.secondary'>
+              <Box sx={{ width: 20, height: 2, bgcolor: '#D97706', borderRadius: 1, opacity: outdoorTemp != null ? 1 : 0.35 }} />
+              <Typography sx={{ fontSize: '11px', color: textSecondary }}>
                 {outdoorTemp != null
                   ? `Suhu luar (${outdoorTemp}°C${outdoorHum != null ? `, RH ${outdoorHum}%` : ''})`
                   : gpsStatus === 'loading' ? 'Mengambil lokasi GPS...'
